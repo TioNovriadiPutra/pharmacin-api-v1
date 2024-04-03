@@ -48,4 +48,7 @@ vine.messagesProvider = new SimpleMessagesProvider({
   'composition.required': 'Komposisi harus diisi!',
   'outpatientFee.required': 'Biaya rawat jalan harus diisi!',
   'sellingFee.required': 'Biaya pembelian obat harus diisi!',
+  'actionName.required': 'Nama tindakan harus diisi!',
+  'actionPrice.required': 'Harga tindakan harus diisi!',
+  'actionPrice.positive': 'Harga tindakan harus bilangan positif!',
 })

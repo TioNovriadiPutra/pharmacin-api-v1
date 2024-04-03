@@ -6,6 +6,7 @@ import Clinic from './clinic.js'
 import Patient from './patient.js'
 import SellingShoppingCart from './selling_shopping_cart.js'
 import Queue from './queue.js'
+import ActionCart from './action_cart.js'
 
 export default class SellingTransaction extends BaseModel {
   @column({ isPrimary: true })
@@ -59,4 +60,7 @@ export default class SellingTransaction extends BaseModel {
 
   @belongsTo(() => Queue)
   declare queue: BelongsTo<typeof Queue>
+
+  @hasMany(() => ActionCart)
+  declare actionCarts: HasMany<typeof ActionCart>
 }

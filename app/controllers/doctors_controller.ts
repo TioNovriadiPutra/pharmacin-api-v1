@@ -18,6 +18,9 @@ import idConverter from '../helpers/id_converter.js'
 import Drug from '#models/drug'
 import SellingShoppingCart from '#models/selling_shopping_cart'
 import RecordDrugAssessment from '#models/record_drug_assessment'
+import Action from '#models/action'
+import ActionCart from '#models/action_cart'
+import InsufficientStockException from '#exceptions/insufficient_stock_exception'
 
 export default class DoctorsController {
   async getDoctors({ response, auth, bouncer }: HttpContext) {
@@ -154,6 +157,10 @@ export default class DoctorsController {
 
   async addAssessment({ request, response, bouncer, params, auth }: HttpContext) {
     try {
+      const drugCartsArr = []
+      const recordDrugAssesmentsArr = []
+      const actionsArr = []
+
       const queueData = await Queue.query()
         .preload('clinic')
         .preload('patient')
@@ -169,8 +176,6 @@ export default class DoctorsController {
       }
 
       const data = await request.validateUsing(addAssessmentValidator)
-
-      queueData.status = QueueStatus['DRUG_PICK_UP']
 
       const newRecord = new Record()
       newRecord.weight = data.weight
@@ -190,50 +195,93 @@ export default class DoctorsController {
       newRecord.doctorId = queueData.doctor.id
       newRecord.clinicId = queueData.clinic.id
 
-      await newRecord.save()
-      await queueData.save()
-
-      const invoiceDate = DateTime.now()
-
       const newSellingTransaction = new SellingTransaction()
       newSellingTransaction.registrationNumber = queueData.registrationNumber
       newSellingTransaction.totalPrice = data.totalPrice
       newSellingTransaction.clinicId = auth.user!.clinicId
-      newSellingTransaction.recordId = newRecord.id
       newSellingTransaction.patientId = queueData.patientId
       newSellingTransaction.queueId = params.id
 
-      await newSellingTransaction.save()
+      if (data.drugCarts) {
+        for (const cart of data.drugCarts) {
+          try {
+            const drugData = await Drug.findOrFail(cart.drugId)
+
+            if (drugData.totalStock === 0 || drugData.totalStock < cart.quantity) {
+              throw new InsufficientStockException(drugData.drug)
+            }
+
+            const newSellingShoppingCart = new SellingShoppingCart()
+            newSellingShoppingCart.drugName = drugData.drug
+            newSellingShoppingCart.sellingPrice = drugData.sellingPrice
+            newSellingShoppingCart.instruction = cart.instruction
+            newSellingShoppingCart.unitName = drugData.unitName
+            newSellingShoppingCart.quantity = cart.quantity
+            newSellingShoppingCart.totalPrice = cart.totalPrice
+            newSellingShoppingCart.drugId = cart.drugId
+
+            const newRecordDrugAssessment = new RecordDrugAssessment()
+            newRecordDrugAssessment.drugName = drugData.drug
+            newRecordDrugAssessment.unitName = drugData.unitName
+            newRecordDrugAssessment.instruction = cart.instruction
+            newRecordDrugAssessment.drugId = cart.drugId
+
+            drugCartsArr.push(newSellingShoppingCart)
+            recordDrugAssesmentsArr.push(newRecordDrugAssessment)
+          } catch (error) {
+            if (error.status === 400) {
+              throw error
+            } else {
+              throw new DataNotFoundException('Data obat tidak ditemukan!', 1)
+            }
+          }
+        }
+      }
+
+      if (data.actions) {
+        for (const action of data.actions) {
+          try {
+            const actionData = await Action.findOrFail(action)
+
+            const newActionCart = new ActionCart()
+            newActionCart.actionName = actionData.actionName
+            newActionCart.actionPrice = actionData.actionPrice
+            newActionCart.actionId = actionData.id
+
+            actionsArr.push(newActionCart)
+          } catch (error) {
+            throw new DataNotFoundException('Data tindakan tidak ditemukan!', 1)
+          }
+        }
+      }
+
+      queueData.status = QueueStatus['DRUG_PICK_UP']
+
+      await newRecord.related('sellingTransaction').save(newSellingTransaction)
+
+      const invoiceDate = DateTime.now()
 
       newSellingTransaction.invoiceNumber = `INV/${invoiceDate.year}${invoiceDate.month}${invoiceDate.day}/${idConverter(newSellingTransaction.id)}`
 
       await newSellingTransaction.save()
 
-      if (data.drugCarts) {
-        data.drugCarts.forEach(async (cart) => {
-          const drugData = await Drug.findOrFail(cart.drugId)
+      if (drugCartsArr.length > 0) {
+        for (const newCart of drugCartsArr) {
+          await newSellingTransaction.related('sellingShoppingCarts').save(newCart)
+        }
 
-          const newSellingShoppingCart = new SellingShoppingCart()
-          newSellingShoppingCart.drugName = drugData.drug
-          newSellingShoppingCart.sellingPrice = drugData.sellingPrice
-          newSellingShoppingCart.instruction = cart.instruction
-          newSellingShoppingCart.unitName = drugData.unitName
-          newSellingShoppingCart.quantity = cart.quantity
-          newSellingShoppingCart.totalPrice = cart.totalPrice
-          newSellingShoppingCart.sellingTransactionId = newSellingTransaction.id
-          newSellingShoppingCart.drugId = cart.drugId
-
-          const newRecordDrugAssessment = new RecordDrugAssessment()
-          newRecordDrugAssessment.drugName = drugData.drug
-          newRecordDrugAssessment.unitName = drugData.unitName
-          newRecordDrugAssessment.instruction = cart.instruction
-          newRecordDrugAssessment.drugId = cart.drugId
-          newRecordDrugAssessment.recordId = newRecord.id
-
-          await newSellingShoppingCart.save()
-          await newRecordDrugAssessment.save()
-        })
+        for (const newRecordDrug of recordDrugAssesmentsArr) {
+          await newRecord.related('recordDrugsAssessment').save(newRecordDrug)
+        }
       }
+
+      if (actionsArr.length > 0) {
+        for (const newActionCart of actionsArr) {
+          await newSellingTransaction.related('actionCarts').save(newActionCart)
+        }
+      }
+
+      await queueData.save()
 
       return response.created({
         message: 'Data assessment berhasil ditambahkan!',
@@ -242,7 +290,11 @@ export default class DoctorsController {
       if (error.status === 422) {
         throw new ValidationException(error.messages)
       } else if (error.status === 404) {
-        throw new DataNotFoundException('Data antrian tidak ditemukan!')
+        if (error.rc === 0) {
+          throw new DataNotFoundException('Data antrian tidak ditemukan!')
+        } else {
+          throw error
+        }
       } else {
         throw error
       }

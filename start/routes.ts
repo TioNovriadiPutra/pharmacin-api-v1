@@ -16,6 +16,7 @@ const ClinicsController = () => import('#controllers/clinics_controller')
 const SpecialitiesController = () => import('#controllers/doctor_specialists_controller')
 const EmployeesController = () => import('#controllers/employees_controller')
 const DoctorAssistantsController = () => import('#controllers/doctor_assistants_controller')
+const ActionsController = () => import('#controllers/actions_controller')
 
 router.get('/', async () => {
   return {
@@ -102,6 +103,14 @@ router
     router.get('/fee', [ClinicsController, 'getClinicAdminFee'])
     router.put('/', [ClinicsController, 'updateClinic'])
     router.patch('/fee', [ClinicsController, 'updateAdminFee'])
+    router
+      .group(() => {
+        router.get('/', [ActionsController, 'getActions'])
+        router.post('/', [ActionsController, 'addAction'])
+        router.put('/:id', [ActionsController, 'updateAction'])
+        router.delete('/:id', [ActionsController, 'deleteAction'])
+      })
+      .prefix('/action')
   })
   .prefix('/clinic')
   .use(
@@ -161,6 +170,7 @@ router
     router
       .group(() => {
         router.get('/:id', [TransactionsController, 'getSellingTransactionDetail'])
+        router.put('/:id', [TransactionsController, 'sellingPayment'])
         router.delete('/cart/:id', [TransactionsController, 'deleteSellingShoppingCart'])
       })
       .prefix('/selling')

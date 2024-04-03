@@ -13,6 +13,7 @@
 */
 
 export const policies = {
+  ActionPolicy: () => import('#policies/action_policy'),
   TransactionPolicy: () => import('#policies/transaction_policy'),
   DoctorAssistantPolicy: () => import('#policies/doctor_assistant_policy'),
   EmployeePolicy: () => import('#policies/employee_policy'),

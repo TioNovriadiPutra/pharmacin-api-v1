@@ -186,17 +186,6 @@ export default class QueuesController {
     }
   }
 
-  async getPharmacyDrugPickUpDetail({ response, bouncer, auth }: HttpContext) {
-    try {
-      const sellingData = await db.rawQuery(
-        `SELECT
-         FROM queues q
-         JOIN patients p ON q.patient_id = p.id
-         JOIN records r ON `
-      )
-    } catch (error) {}
-  }
-
   async changeStatusToConsultingQueue({ response, params, bouncer }: HttpContext) {
     try {
       const queueData = await Queue.findOrFail(params.id)

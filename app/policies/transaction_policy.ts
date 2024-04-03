@@ -18,6 +18,10 @@ export default class TransactionPolicy extends BasePolicy {
   }
 
   handleCart(user: User, transaction: SellingTransaction): AuthorizerResponse {
-    return user.roleId === Role['NURSE'] && transaction.status === false
+    return (
+      user.roleId === Role['NURSE'] &&
+      transaction.status === false &&
+      user.clinicId === transaction.clinicId
+    )
   }
 }

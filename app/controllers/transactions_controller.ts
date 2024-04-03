@@ -189,7 +189,7 @@ export default class TransactionsController {
           q.registration_number,
           p.record_number,
           p.full_name,
-          CONCAT(p.pob, ", ", p.dob) AS ttl,
+          CONCAT(p.pob, ", ", DATE_FORMAT(p.dob, "%e %M %Y")) AS ttl,
           p.address,
           DATE_FORMAT(q.created_at, "%Y-%m-%d") AS created_at,
           r.doctor_name,
@@ -239,6 +239,36 @@ export default class TransactionsController {
     }
   }
 
+  async sellingPayment({ response, bouncer, params }: HttpContext) {
+    try {
+      const sellingTransactionData = await SellingTransaction.findOrFail(params.id)
+      const sellingShoppingCartData = await SellingShoppingCart.query().where(
+        'selling_transaction_id',
+        sellingTransactionData.id
+      )
+
+      if (await bouncer.with('TransactionPolicy').denies('handleCart', sellingTransactionData)) {
+        throw new ForbiddenException()
+      }
+
+      for (const cart of sellingShoppingCartData) {
+        await DrugStock.reduceStockOnSelling(cart)
+      }
+
+      await sellingTransactionData.merge({ status: true }).save()
+
+      return response.ok({
+        message: 'Penjualan berhasil!',
+      })
+    } catch (error) {
+      if (error.status === 404) {
+        throw new DataNotFoundException('Data transaksi tidak ditemukan!')
+      } else {
+        throw error
+      }
+    }
+  }
+
   async deleteSellingShoppingCart({ response, bouncer, params }: HttpContext) {
     try {
       const cartData = await SellingShoppingCart.findOrFail(params.id)
@@ -248,7 +278,7 @@ export default class TransactionsController {
         throw new ForbiddenException()
       }
 
-      transactionData.totalPrice = transactionData.totalPrice = cartData.totalPrice
+      transactionData.totalPrice = transactionData.totalPrice - cartData.totalPrice
 
       await transactionData.save()
       await cartData.delete()

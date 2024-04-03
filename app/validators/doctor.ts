@@ -39,5 +39,6 @@ export const addAssessmentValidator = vine.compile(
         })
       )
       .optional(),
+    actions: vine.array(vine.number()).optional(),
   })
 )

@@ -51,7 +51,7 @@ export default class AuthController {
 
   async registerDoctor({ request, response, auth, bouncer }: HttpContext) {
     try {
-      if (await bouncer.with('AuthPolicy').denies('registerEmployee')) {
+      if (await bouncer.with('AuthPolicy').denies('handle')) {
         throw new ForbiddenException()
       }
 
@@ -71,6 +71,7 @@ export default class AuthController {
 
       const newDoctor = new Doctor()
       newDoctor.specialityId = data.specialityId
+      newDoctor.clinicId = auth.user!.clinicId
 
       await newUser.related('profile').save(newProfile)
       await newProfile.related('doctor').save(newDoctor)
@@ -89,7 +90,7 @@ export default class AuthController {
 
   async registerDoctorAssistant({ request, response, auth, bouncer }: HttpContext) {
     try {
-      if (await bouncer.with('AuthPolicy').denies('registerEmployee')) {
+      if (await bouncer.with('AuthPolicy').denies('handle')) {
         throw new ForbiddenException()
       }
 
@@ -127,7 +128,7 @@ export default class AuthController {
 
   async registerEmployee({ request, response, auth, bouncer }: HttpContext) {
     try {
-      if (await bouncer.with('AuthPolicy').denies('registerEmployee')) {
+      if (await bouncer.with('AuthPolicy').denies('handle')) {
         throw new ForbiddenException()
       }
 
@@ -161,7 +162,7 @@ export default class AuthController {
 
   async registerAdministrator({ request, response, auth, bouncer }: HttpContext) {
     try {
-      if (await bouncer.with('AuthPolicy').denies('registerEmployee')) {
+      if (await bouncer.with('AuthPolicy').denies('handle')) {
         throw new ForbiddenException()
       }
 

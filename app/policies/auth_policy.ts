@@ -4,7 +4,7 @@ import { AuthorizerResponse } from '@adonisjs/bouncer/types'
 import { Role } from '../enums/role_enum.js'
 
 export default class AuthPolicy extends BasePolicy {
-  registerEmployee(user: User): AuthorizerResponse {
+  handle(user: User): AuthorizerResponse {
     return user.roleId === Role.ADMIN
   }
 }

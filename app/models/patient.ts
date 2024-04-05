@@ -1,10 +1,12 @@
 import { DateTime } from 'luxon'
-import { BaseModel, belongsTo, column, hasOne } from '@adonisjs/lucid/orm'
+import { BaseModel, belongsTo, column, hasMany, hasOne } from '@adonisjs/lucid/orm'
 import { Gender } from '../enums/gender_enum.js'
 import Clinic from './clinic.js'
-import type { BelongsTo, HasOne } from '@adonisjs/lucid/types/relations'
+import type { BelongsTo, HasMany, HasOne } from '@adonisjs/lucid/types/relations'
 import Occupation from './occupation.js'
 import Queue from './queue.js'
+import Record from './record.js'
+import SellingTransaction from './selling_transaction.js'
 
 export default class Patient extends BaseModel {
   @column({ isPrimary: true })
@@ -70,4 +72,10 @@ export default class Patient extends BaseModel {
 
   @hasOne(() => Queue)
   declare queue: HasOne<typeof Queue>
+
+  @hasMany(() => Record)
+  declare records: HasMany<typeof Record>
+
+  @hasMany(() => SellingTransaction)
+  declare sellingTransactions: HasMany<typeof SellingTransaction>
 }

@@ -15,14 +15,19 @@ import moment from 'moment'
 import getRandomNumId from '../helpers/random_num.js'
 
 export default class PatientsController {
-  async getPatients({ request, response, auth }: HttpContext) {
-    const page = request.input('page', 1)
-    const perPage = request.input('perPage', 10)
-    const searchTerm = request.input('searchTerm', '')
-    const search = `%${searchTerm}%`
+  async getPatients({ request, response, auth, bouncer }: HttpContext) {
+    try {
+      if (await bouncer.with('PatientPolicy').denies('view')) {
+        throw new ForbiddenException()
+      }
 
-    const patientData = await db.rawQuery(
-      `SELECT
+      const page = request.input('page', 1)
+      const perPage = request.input('perPage', 10)
+      const searchTerm = request.input('searchTerm', '')
+      const search = `%${searchTerm}%`
+
+      const patientData = await db.rawQuery(
+        `SELECT
         id,
         full_name,
         record_number,
@@ -38,18 +43,26 @@ export default class PatientsController {
        WHERE clinic_id = ? AND (full_name LIKE ? OR nik LIKE ? OR record_number LIKE ?)
        ORDER BY full_name ASC
        LIMIT ? OFFSET ?`,
-      [auth.user!.clinicId, search, search, search, perPage, skipData(page, perPage)]
-    )
+        [auth.user!.clinicId, search, search, search, perPage, skipData(page, perPage)]
+      )
 
-    return response.ok({
-      message: 'Data fetched!',
-      data: patientData[0],
-    })
+      return response.ok({
+        message: 'Data fetched!',
+        data: patientData[0],
+      })
+    } catch (error) {
+      throw error
+    }
   }
 
   async getQueuingPatients({ response, auth, bouncer }: HttpContext) {
-    const patientData = await db.rawQuery(
-      `SELECT
+    try {
+      if (await bouncer.with('PatientPolicy').denies('view')) {
+        throw new ForbiddenException()
+      }
+
+      const patientData = await db.rawQuery(
+        `SELECT
         q.id,
         q.registration_number,
         p.full_name,
@@ -70,18 +83,21 @@ export default class PatientsController {
        JOIN queues q ON p.id = q.patient_id
        WHERE p.ready = 0 AND p.clinic_id = ?
        ORDER BY q.created_at ASC`,
-      [auth.user!.clinicId]
-    )
+        [auth.user!.clinicId]
+      )
 
-    return response.ok({
-      message: 'Data fetched!',
-      data: patientData[0],
-    })
+      return response.ok({
+        message: 'Data fetched!',
+        data: patientData[0],
+      })
+    } catch (error) {
+      throw error
+    }
   }
 
   async addPatient({ request, response, auth, bouncer }: HttpContext) {
     try {
-      if (await bouncer.with('PatientPolicy').denies('addPatient')) {
+      if (await bouncer.with('PatientPolicy').denies('handle')) {
         throw new ForbiddenException()
       }
 
@@ -115,7 +131,7 @@ export default class PatientsController {
         throw new ValidationException(error.messages)
       } else if (error.status === 404) {
         throw new DataNotFoundException('Jenis pekerjaan tidak ditemukan!')
-      } else if (error.status === 403) {
+      } else {
         throw error
       }
     }

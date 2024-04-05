@@ -10,6 +10,13 @@ const DrugStocksController = () => import('#controllers/drug_stocks_controller')
 const PatientsController = () => import('#controllers/patients_controller')
 const QueueController = () => import('#controllers/queues_controller')
 const DoctorsController = () => import('#controllers/doctors_controller')
+const UnitsController = () => import('#controllers/units_controller')
+const OccupationsController = () => import('#controllers/occupations_controller')
+const ClinicsController = () => import('#controllers/clinics_controller')
+const SpecialitiesController = () => import('#controllers/doctor_specialists_controller')
+const EmployeesController = () => import('#controllers/employees_controller')
+const DoctorAssistantsController = () => import('#controllers/doctor_assistants_controller')
+const ActionsController = () => import('#controllers/actions_controller')
 
 router.get('/', async () => {
   return {
@@ -58,8 +65,54 @@ router
 router
   .group(() => {
     router.get('/profile', [UsersController, 'getUserProfile'])
+    router
+      .group(() => {
+        router.get('/', [UsersController, 'getAdministrators'])
+        router.get('/:id', [UsersController, 'getAdministratorDetail'])
+        router.put('/:id', [UsersController, 'updateAdministrator'])
+        router.delete('/:id', [UsersController, 'deleteAdministrator'])
+      })
+      .prefix('/administrator')
+    router
+      .group(() => {
+        router.get('/', [EmployeesController, 'getEmployees'])
+        router.get('/:id', [EmployeesController, 'getEmployeeDetail'])
+        router.put('/:id', [EmployeesController, 'updateEmployee'])
+        router.delete('/:id', [EmployeesController, 'deleteEmployee'])
+      })
+      .prefix('/employee')
+    router
+      .group(() => {
+        router.get('/', [DoctorAssistantsController, 'getAssistants'])
+        router.get('/:id', [DoctorAssistantsController, 'getAssistantDetail'])
+        router.put('/:id', [DoctorAssistantsController, 'updateDoctorAssistant'])
+        router.delete('/:id', [DoctorAssistantsController, 'deleteAssistant'])
+      })
+      .prefix('/assistant')
   })
   .prefix('/user')
+  .use(
+    middleware.auth({
+      guards: ['api'],
+    })
+  )
+
+router
+  .group(() => {
+    router.get('/', [ClinicsController, 'getClinicDetail'])
+    router.get('/fee', [ClinicsController, 'getClinicAdminFee'])
+    router.put('/', [ClinicsController, 'updateClinic'])
+    router.patch('/fee', [ClinicsController, 'updateAdminFee'])
+    router
+      .group(() => {
+        router.get('/', [ActionsController, 'getActions'])
+        router.post('/', [ActionsController, 'addAction'])
+        router.put('/:id', [ActionsController, 'updateAction'])
+        router.delete('/:id', [ActionsController, 'deleteAction'])
+      })
+      .prefix('/action')
+  })
+  .prefix('/clinic')
   .use(
     middleware.auth({
       guards: ['api'],
@@ -109,10 +162,18 @@ router
     router
       .group(() => {
         router.get('/', [TransactionsController, 'getPurchaseTransactions'])
+        router.get('/:id', [TransactionsController, 'getPurchaseTransactionDetail'])
         router.post('/', [TransactionsController, 'addPurchaseTransaction'])
         router.delete('/:id', [TransactionsController, 'deletePurchaseTransaction'])
       })
       .prefix('/purchase')
+    router
+      .group(() => {
+        router.get('/:id', [TransactionsController, 'getSellingTransactionDetail'])
+        router.put('/:id', [TransactionsController, 'sellingPayment'])
+        router.delete('/cart/:id', [TransactionsController, 'deleteSellingShoppingCart'])
+      })
+      .prefix('/selling')
   })
   .prefix('/transaction')
   .use(
@@ -149,6 +210,10 @@ router
 router
   .group(() => {
     router.get('/consult-wait', [QueueController, 'getConsultWaitQueue'])
+    router.get('/drug-pick-up', [QueueController, 'getPharmaciDrugPickUpQueue'])
+    router.get('/doctor/consult-wait', [QueueController, 'getDoctorConsultWaitQueue'])
+    router.get('/doctor/consulting', [QueueController, 'getDoctorConsultingQueue'])
+    router.get('/doctor/consulting/:id', [QueueController, 'getDoctorConsultingQueueDetail'])
     router.patch('/consult-wait/:id', [QueueController, 'changeStatusToConsultingQueue'])
     router.delete('/cancel/:id', [QueueController, 'cancelQueue'])
   })
@@ -162,8 +227,48 @@ router
 router
   .group(() => {
     router.get('/', [DoctorsController, 'getDoctors'])
+    router.get('/:id', [DoctorsController, 'getDoctorDetail'])
+    router.post('/assessment/:id', [DoctorsController, 'addAssessment'])
+    router.put('/:id', [DoctorsController, 'updateDoctor'])
+    router.delete('/:id', [DoctorsController, 'deleteDoctor'])
   })
   .prefix('/doctor')
+  .use(
+    middleware.auth({
+      guards: ['api'],
+    })
+  )
+
+router
+  .group(() => {
+    router.get('/', [UnitsController, 'getUnits'])
+    router.post('/', [UnitsController, 'addUnit'])
+    router.put('/:id', [UnitsController, 'updateUnit'])
+    router.delete('/:id', [UnitsController, 'deleteUnit'])
+  })
+  .prefix('/unit')
+  .use(
+    middleware.auth({
+      guards: ['api'],
+    })
+  )
+
+router
+  .group(() => {
+    router.get('/', [OccupationsController, 'getOccupations'])
+  })
+  .prefix('/occupation')
+  .use(
+    middleware.auth({
+      guards: ['api'],
+    })
+  )
+
+router
+  .group(() => {
+    router.get('/', [SpecialitiesController, 'getSpecialities'])
+  })
+  .prefix('/speciality')
   .use(
     middleware.auth({
       guards: ['api'],

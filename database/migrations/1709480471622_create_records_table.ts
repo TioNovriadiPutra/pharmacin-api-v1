@@ -25,6 +25,9 @@ export default class extends BaseSchema {
       table.string('phone', 20).notNullable()
       table.string('occupation_name', 45).notNullable()
       table.string('allergy').nullable()
+      table.string('doctor_name', 50).notNullable()
+      table.string('clinic_name', 50).notNullable()
+      table.string('clinic_phone', 20).notNullable()
       table.timestamp('created_at').notNullable().defaultTo(this.now())
       table
         .integer('patient_id')
@@ -38,8 +41,15 @@ export default class extends BaseSchema {
         .unsigned()
         .references('id')
         .inTable('doctors')
-        .onDelete('CASCADE')
-        .notNullable()
+        .onDelete('SET NULL')
+        .nullable()
+      table
+        .integer('clinic_id')
+        .unsigned()
+        .references('id')
+        .inTable('clinics')
+        .onDelete('SET NULL')
+        .nullable()
     })
   }
 

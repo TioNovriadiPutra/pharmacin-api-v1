@@ -11,8 +11,12 @@ import idConverter from '../helpers/id_converter.js'
 import ValidationException from '#exceptions/validation_exception'
 import DataNotFoundException from '#exceptions/data_not_found_exception'
 import skipData from '../helpers/pagination.js'
+import ForbiddenException from '#exceptions/forbidden_exception'
+import SellingShoppingCart from '#models/selling_shopping_cart'
+import SellingTransaction from '#models/selling_transaction'
 
 export default class TransactionsController {
+  // Purchase Transaction
   async getPurchaseTransactions({ request, response, auth }: HttpContext) {
     try {
       const page = request.input('page', 1)
@@ -47,31 +51,48 @@ export default class TransactionsController {
     }
   }
 
-  async showDetailPurchaseTransaction({ request, response, auth }: HttpContext) {
+  async getPurchaseTransactionDetail({ response, bouncer, auth, params }: HttpContext) {
     try {
-      if (auth.user) {
-        var params = request.params()
-
-        var id = params.id
-
-        const purchaseDataHeader = await db.rawQuery(
-          'SELECT purchase_transactions.factory_name,clinic_name,invoice_number,total_price FROM purchase_transactions JOIN drug_factories ON purchase_transactions.drug_factory_id = drug_factories.id JOIN clinics ON purchase_transactions.clinic_id = clinics.id WHERE purchase_transactions.id = ?',
-          [id]
-        )
-
-        const purchaseDataDetail = await db.rawQuery(
-          'SELECT drug_name, expired, quantity, purchase_price, total_price FROM purchase_shopping_carts WHERE purchase_transaction_id = ?',
-          [id]
-        )
-
-        return response.ok({
-          message: 'Data fetched!',
-          dataHeader: purchaseDataHeader[0],
-          dataDetail: purchaseDataDetail[0],
-        })
+      if (await bouncer.with('TransactionPolicy').denies('view')) {
+        throw new ForbiddenException()
       }
+
+      const invoiceData = await db.rawQuery(
+        `SELECT
+          pt.invoice_number,
+          df.factory_name,
+          DATE_FORMAT(pt.created_at, '%Y-%m-%d, %H:%i:%s') AS transaction_date,
+          JSON_ARRAY(
+            JSON_OBJECT(
+              'drug', psc.drug_name,
+              'expired', DATE_FORMAT(psc.expired, '%Y-%m-%d'),
+              'quantity', psc.quantity,
+              'purchase_price', psc.purchase_price,
+              'total_price', psc.total_price
+            )
+          ) AS shopping_carts,
+          pt.total_price
+         FROM purchase_transactions pt
+         JOIN drug_factories df ON pt.drug_factory_id = df.id
+         JOIN purchase_shopping_carts psc ON psc.purchase_transaction_id = pt.id
+         WHERE pt.id = ? AND pt.clinic_id = ?`,
+        [params.id, auth.user!.clinicId]
+      )
+
+      if (invoiceData[0].length === 0) {
+        throw new DataNotFoundException('Data transaksi tidak ditemukan!')
+      }
+
+      Object.assign(invoiceData[0][0], {
+        shopping_carts: JSON.parse(invoiceData[0][0].shopping_carts),
+      })
+
+      return response.ok({
+        message: 'Data fetched!',
+        data: invoiceData[0][0],
+      })
     } catch (error) {
-      console.log(error)
+      throw error
     }
   }
 
@@ -151,6 +172,125 @@ export default class TransactionsController {
     } catch (error) {
       if (error.status === 404) {
         throw new DataNotFoundException('Data pembelian tidak ditemukan!')
+      }
+    }
+  }
+
+  // Selling Transaction
+  async getSellingTransactionDetail({ response, bouncer, params }: HttpContext) {
+    try {
+      if (await bouncer.with('TransactionPolicy').denies('view')) {
+        throw new ForbiddenException()
+      }
+
+      const transactionData = await db.rawQuery(
+        `SELECT
+          q.id,
+          q.registration_number,
+          p.record_number,
+          p.full_name,
+          CONCAT(p.pob, ", ", DATE_FORMAT(p.dob, "%e %M %Y")) AS ttl,
+          p.address,
+          DATE_FORMAT(q.created_at, "%Y-%m-%d") AS created_at,
+          r.doctor_name,
+          p.allergy,
+          CASE
+            WHEN st.status = 0 THEN "Belum Diproses"
+            WHEN st.status = 1 THEN "Sudah Diproses"
+          END AS status,
+          CONCAT(
+            "[",
+            GROUP_CONCAT(
+              JSON_OBJECT(
+                "id", ssc.id,
+                "drug_name", ssc.drug_name,
+                "quantity", ssc.quantity,
+                "unit_name", ssc.unit_name,
+                "instruction", ssc.instruction,
+                "total_price", ssc.total_price
+              ) ORDER BY ssc.id SEPARATOR ','
+            ),
+            "]"
+          ) AS drug_carts,
+          st.total_price
+         FROM queues q
+         JOIN patients p ON q.patient_id = p.id
+         JOIN selling_transactions st ON q.id = st.queue_id
+         JOIN records r ON st.record_id = r.id
+         JOIN selling_shopping_carts ssc ON st.id = ssc.selling_transaction_id
+         WHERE q.id = ?`,
+        [params.id]
+      )
+
+      if (transactionData[0].length === 0) {
+        throw new DataNotFoundException('Data transaksi tidak ditemukan!')
+      }
+
+      Object.assign(transactionData[0][0], {
+        drug_carts: JSON.parse(transactionData[0][0].drug_carts),
+      })
+
+      return response.ok({
+        message: 'Data fetched!',
+        data: transactionData[0][0],
+      })
+    } catch (error) {
+      throw error
+    }
+  }
+
+  async sellingPayment({ response, bouncer, params }: HttpContext) {
+    try {
+      const sellingTransactionData = await SellingTransaction.findOrFail(params.id)
+      const sellingShoppingCartData = await SellingShoppingCart.query().where(
+        'selling_transaction_id',
+        sellingTransactionData.id
+      )
+
+      if (await bouncer.with('TransactionPolicy').denies('handleCart', sellingTransactionData)) {
+        throw new ForbiddenException()
+      }
+
+      for (const cart of sellingShoppingCartData) {
+        await DrugStock.reduceStockOnSelling(cart)
+      }
+
+      await sellingTransactionData.merge({ status: true }).save()
+
+      return response.ok({
+        message: 'Penjualan berhasil!',
+      })
+    } catch (error) {
+      if (error.status === 404) {
+        throw new DataNotFoundException('Data transaksi tidak ditemukan!')
+      } else {
+        throw error
+      }
+    }
+  }
+
+  async deleteSellingShoppingCart({ response, bouncer, params }: HttpContext) {
+    try {
+      const cartData = await SellingShoppingCart.findOrFail(params.id)
+      const transactionData = await SellingTransaction.findOrFail(cartData.sellingTransactionId)
+
+      if (await bouncer.with('TransactionPolicy').denies('handleCart', transactionData)) {
+        throw new ForbiddenException()
+      }
+
+      transactionData.totalPrice = transactionData.totalPrice - cartData.totalPrice
+
+      await transactionData.save()
+      await cartData.delete()
+
+      return response.ok({
+        message: 'Keranjang obat berhasil diubah!',
+      })
+    } catch (error) {
+      if (error.status === 404) {
+        throw new DataNotFoundException('Data obat tidak ditemukan!')
+      } else {
+        throw error
       }
     }
   }

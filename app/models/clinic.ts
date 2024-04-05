@@ -8,6 +8,9 @@ import Drug from './drug.js'
 import PurchaseTransaction from './purchase_transaction.js'
 import Patient from './patient.js'
 import Doctor from './doctor.js'
+import Record from './record.js'
+import SellingTransaction from './selling_transaction.js'
+import Action from './action.js'
 
 export default class Clinic extends BaseModel {
   @column({ isPrimary: true })
@@ -20,10 +23,16 @@ export default class Clinic extends BaseModel {
   declare clinicPhone: string
 
   @column()
-  declare address: string
+  declare address?: string
 
   @column()
   declare paymentStatus: boolean
+
+  @column()
+  declare outpatientFee: number
+
+  @column()
+  declare sellingFee: number
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -53,4 +62,13 @@ export default class Clinic extends BaseModel {
 
   @hasMany(() => Doctor)
   declare doctor: HasMany<typeof Doctor>
+
+  @hasMany(() => Record)
+  declare records: HasMany<typeof Record>
+
+  @hasMany(() => SellingTransaction)
+  declare sellingTransactions: HasMany<typeof SellingTransaction>
+
+  @hasMany(() => Action)
+  declare actions: HasMany<typeof Action>
 }

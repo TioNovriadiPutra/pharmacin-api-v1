@@ -6,6 +6,9 @@ import DrugCategory from './drug_category.js'
 import Clinic from './clinic.js'
 import DrugStock from './drug_stock.js'
 import PurchaseShoppingCart from './purchase_shopping_cart.js'
+import Unit from './unit.js'
+import SellingShoppingCart from './selling_shopping_cart.js'
+import RecordDrugAssessment from './record_drug_assessment.js'
 
 export default class Drug extends BaseModel {
   @column({ isPrimary: true })
@@ -21,7 +24,10 @@ export default class Drug extends BaseModel {
   declare drugGenericName?: string
 
   @column()
-  declare dose: string
+  declare composition: number
+
+  @column()
+  declare unitName: string
 
   @column()
   declare shelve?: number
@@ -50,6 +56,9 @@ export default class Drug extends BaseModel {
   @column()
   declare clinicId: number
 
+  @column()
+  declare unitId?: number
+
   @belongsTo(() => DrugFactory)
   declare drugFactory: BelongsTo<typeof DrugFactory>
 
@@ -64,4 +73,13 @@ export default class Drug extends BaseModel {
 
   @hasMany(() => PurchaseShoppingCart)
   declare purchaseShoppingCarts: HasMany<typeof PurchaseShoppingCart>
+
+  @belongsTo(() => Unit)
+  declare unit: BelongsTo<typeof Unit>
+
+  @hasMany(() => SellingShoppingCart)
+  declare sellingShoppingCarts: HasMany<typeof SellingShoppingCart>
+
+  @hasMany(() => RecordDrugAssessment)
+  declare recordDrugsAssessment: HasMany<typeof RecordDrugAssessment>
 }

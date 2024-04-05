@@ -6,6 +6,7 @@ import DoctorSpecialist from './doctor_specialist.js'
 import DoctorAssistant from './doctor_assistant.js'
 import Queue from './queue.js'
 import Clinic from './clinic.js'
+import Record from './record.js'
 
 export default class Doctor extends BaseModel {
   @column({ isPrimary: true })
@@ -29,7 +30,9 @@ export default class Doctor extends BaseModel {
   @belongsTo(() => Profile)
   declare profile: BelongsTo<typeof Profile>
 
-  @belongsTo(() => DoctorSpecialist)
+  @belongsTo(() => DoctorSpecialist, {
+    foreignKey: 'specialityId',
+  })
   declare doctorSpeciality: BelongsTo<typeof DoctorSpecialist>
 
   @hasMany(() => DoctorAssistant)
@@ -40,4 +43,7 @@ export default class Doctor extends BaseModel {
 
   @belongsTo(() => Clinic)
   declare clinic: BelongsTo<typeof Clinic>
+
+  @hasMany(() => Record)
+  declare records: HasMany<typeof Record>
 }

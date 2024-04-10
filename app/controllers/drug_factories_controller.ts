@@ -6,10 +6,15 @@ import { addClinicDrugFactory } from '#validators/drug_factory'
 import type { HttpContext } from '@adonisjs/core/http'
 import db from '@adonisjs/lucid/services/db'
 import skipData from '../helpers/pagination.js'
+import ForbiddenException from '#exceptions/forbidden_exception'
 
 export default class DrugFactoriesController {
-  async addDrugFactory({ request, response, auth }: HttpContext) {
+  async addDrugFactory({ request, response, auth, bouncer }: HttpContext) {
     try {
+      if (await bouncer.with('DrugFactoryPolicy').denies('viewAllAndAdd')) {
+        throw new ForbiddenException()
+      }
+
       const data = await request.validateUsing(addClinicDrugFactory)
 
       const clinicData = await Clinic.findOrFail(auth.user!.clinicId)
@@ -33,6 +38,8 @@ export default class DrugFactoriesController {
         throw new ValidationException(error.messages)
       } else if (error.status === 404) {
         throw new DataNotFoundException('Data klinik tidak ditemukan!')
+      } else {
+        throw error
       }
     }
   }
@@ -73,50 +80,43 @@ export default class DrugFactoriesController {
     }
   }
 
-  async getFactoryDetail({ response, params, auth }: HttpContext) {
+  async getFactoryDetail({ response, params, auth, bouncer }: HttpContext) {
     try {
-      const factoryData = await db.rawQuery(
-        `SELECT
-          df.id,
-          df.factory_name,
-          df.factory_email,
-          df.factory_phone,
-          CONCAT(
-            "[",
-            GROUP_CONCAT(
-              JSON_OBJECT(
-                "id", d.id,
-                "created_at", DATE_FORMAT(d.created_at, "%Y-%m-%d"),
-                "drug", d.drug,
-                "drug_generic_name", d.drug_generic_name,
-                "unit", d.unit_name,
-                "composition", d.composition,
-                "category_name", dc.category_name,
-                "purchase_price", d.purchase_price,
-                "selling_price", d.selling_price,
-                "total_stock", d.total_stock
-              )
-            ),
-            "]"
-          ) AS drug_list
-          FROM drug_factories df
-          INNER JOIN drugs d ON df.id = d.drug_factory_id AND d.clinic_id = ?
-          INNER JOIN drug_categories dc ON dc.id = d.drug_category_id
-          WHERE df.id = ?`,
-        [auth.user!.clinicId, params.id]
-      )
-
-      if (factoryData[0].length === 0) {
-        throw new DataNotFoundException('Drug factory data not found!')
+      if (await bouncer.with('DrugFactoryPolicy').denies('viewAllAndAdd')) {
+        throw new ForbiddenException()
       }
 
-      Object.assign(factoryData[0][0], {
-        drug_list: JSON.parse(factoryData[0][0].drug_list),
-      })
+      const factoryData = await DrugFactory.query()
+        .select('id', 'factory_name', 'factory_email', 'factory_phone')
+        .preload('drugs', (builder) => {
+          builder
+            .select(
+              'id',
+              'created_at',
+              'drug',
+              'drug_generic_name',
+              'unit_name',
+              'composition',
+              'purchase_price',
+              'selling_price',
+              'total_stock',
+              'drug_category_id'
+            )
+            .preload('drugCategory', (builder2) => {
+              builder2.select('id', 'category_name')
+            })
+            .where('clinic_id', auth.user!.clinicId)
+        })
+        .where('id', params.id)
+        .firstOrFail()
 
-      return response.ok({ message: 'Data fetched!', data: factoryData[0][0] })
+      return response.ok({ message: 'Data fetched!', data: factoryData })
     } catch (error) {
-      throw error
+      if (error.status === 404) {
+        throw new DataNotFoundException('Data pabrik tidak ditemukan!')
+      } else {
+        throw error
+      }
     }
   }
 }

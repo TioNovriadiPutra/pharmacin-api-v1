@@ -25,6 +25,7 @@ router.get('/', async () => {
   }
 })
 
+// Auth Endpoint
 router
   .group(() => {
     router
@@ -62,6 +63,7 @@ router
   })
   .prefix('/auth')
 
+// User Endpoint
 router
   .group(() => {
     router.get('/profile', [UsersController, 'getUserProfile'])
@@ -97,6 +99,7 @@ router
     })
   )
 
+// Clinic Endpoint
 router
   .group(() => {
     router.get('/', [ClinicsController, 'getClinicDetail'])
@@ -119,6 +122,7 @@ router
     })
   )
 
+// Drug Factory Endpoint
 router
   .group(() => {
     router.get('/', [DrugFactoriesController, 'getFactories'])
@@ -133,15 +137,16 @@ router
     })
   )
 
+// Drug Endpoint
 router
   .group(() => {
     router.get('/', [DrugsController, 'getDrugs'])
     router.post('/', [DrugsController, 'addDrug'])
     router
       .group(() => {
-        router.get('/', [DrugsController, 'getCategories'])
+        router.get('/', [DrugsController, 'getDrugCategories'])
         router.post('/', [DrugsController, 'addDrugCategory'])
-        router.get('/:id', [DrugsController, 'getCategoryDetail'])
+        router.get('/:id', [DrugsController, 'getDrugCategoryDetail'])
         router.put('/:id', [DrugsController, 'updateDrugCategory'])
         router.delete('/:id', [DrugsController, 'deleteDrugCategory'])
       })
@@ -157,6 +162,7 @@ router
     })
   )
 
+// Transaction Endpoint
 router
   .group(() => {
     router
@@ -182,6 +188,7 @@ router
     })
   )
 
+// Stock Endpoint
 router
   .group(() => {
     router.get('/', [DrugStocksController, 'getStocks'])
@@ -193,6 +200,7 @@ router
     })
   )
 
+// Patient Endpoint
 router
   .group(() => {
     router.get('/', [PatientsController, 'getPatients'])
@@ -207,6 +215,7 @@ router
     })
   )
 
+// Queue Endpoint
 router
   .group(() => {
     router.get('/consult-wait', [QueueController, 'getConsultWaitQueue'])
@@ -224,6 +233,7 @@ router
     })
   )
 
+// Doctor Endpoint
 router
   .group(() => {
     router.get('/', [DoctorsController, 'getDoctors'])
@@ -239,6 +249,7 @@ router
     })
   )
 
+// Unit Endpoint
 router
   .group(() => {
     router.get('/', [UnitsController, 'getUnits'])
@@ -253,6 +264,7 @@ router
     })
   )
 
+// Occupation Endpoint
 router
   .group(() => {
     router.get('/', [OccupationsController, 'getOccupations'])
@@ -264,6 +276,7 @@ router
     })
   )
 
+// Speciality Endpoint
 router
   .group(() => {
     router.get('/', [SpecialitiesController, 'getSpecialities'])

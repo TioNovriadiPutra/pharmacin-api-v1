@@ -13,6 +13,9 @@
 */
 
 export const policies = {
+  DrugPolicy: () => import('#policies/drug_policy'),
+  DrugCategoryPolicy: () => import('#policies/drug_category_policy'),
+  DrugFactoryPolicy: () => import('#policies/drug_factory_policy'),
   ActionPolicy: () => import('#policies/action_policy'),
   TransactionPolicy: () => import('#policies/transaction_policy'),
   DoctorAssistantPolicy: () => import('#policies/doctor_assistant_policy'),

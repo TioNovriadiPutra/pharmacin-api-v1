@@ -8,10 +8,62 @@ import db from '@adonisjs/lucid/services/db'
 import idConverter from '../helpers/id_converter.js'
 import skipData from '../helpers/pagination.js'
 import Unit from '#models/unit'
+import ForbiddenException from '#exceptions/forbidden_exception'
 
 export default class DrugsController {
-  async addDrugCategory({ request, response, auth }: HttpContext) {
+  async getDrugCategories({ request, response, auth, bouncer }: HttpContext) {
     try {
+      if (await bouncer.with('DrugCategoryPolicy').denies('viewAndAdd')) {
+        throw new ForbiddenException()
+      }
+
+      const page = request.input('page', 1)
+      const perPage = request.input('perPage', 10)
+      const searchTerm = request.input('searchTerm', '')
+      const search = `%${searchTerm}%`
+      const categoryData = await db.rawQuery(
+        `SELECT id, category_number, category_name 
+      FROM drug_categories 
+      WHERE clinic_id = ?
+      AND (category_name LIKE ?)
+      LIMIT ?
+      OFFSET ?`,
+        [auth.user!.clinicId, search, perPage, skipData(page, perPage)]
+      )
+
+      return response.ok({ message: 'Data fetched!', data: categoryData[0] })
+    } catch (error) {
+      throw error
+    }
+  }
+
+  async getDrugCategoryDetail({ response, params, bouncer }: HttpContext) {
+    try {
+      const categoryData = await DrugCategory.query()
+        .select('id', 'category_name', 'clinic_id')
+        .where('id', params.id)
+        .firstOrFail()
+
+      if (await bouncer.with('DrugCategoryPolicy').denies('update', categoryData)) {
+        throw new ForbiddenException()
+      }
+
+      return response.ok({ message: 'Data fetched!', data: categoryData })
+    } catch (error) {
+      if (error.status === 404) {
+        throw new DataNotFoundException('Data kategori tidak ditemukan!')
+      } else {
+        throw error
+      }
+    }
+  }
+
+  async addDrugCategory({ request, response, auth, bouncer }: HttpContext) {
+    try {
+      if (await bouncer.with('DrugCategoryPolicy').denies('viewAndAdd')) {
+        throw new ForbiddenException()
+      }
+
       const data = await request.validateUsing(addDrugCategoryValidator)
 
       const newDrugCategory = new DrugCategory()
@@ -28,47 +80,22 @@ export default class DrugsController {
     } catch (error) {
       if (error.status === 422) {
         throw new ValidationException(error.messages)
+      } else {
+        throw error
       }
     }
   }
 
-  async getCategories({ request, response, auth }: HttpContext) {
-    const page = request.input('page', 1)
-    const perPage = request.input('perPage', 10)
-    const searchTerm = request.input('searchTerm', '')
-    const search = `%${searchTerm}%`
-    const categoryData = await db.rawQuery(
-      `SELECT id, category_number, category_name 
-      FROM drug_categories 
-      WHERE clinic_id = ?
-      AND (category_name LIKE ?)
-      LIMIT ?
-      OFFSET ?`,
-      [auth.user!.clinicId, search, perPage, skipData(page, perPage)]
-    )
-
-    return response.ok({ message: 'Data fetched!', data: categoryData[0] })
-  }
-
-  async deleteDrugCategory({ response, params }: HttpContext) {
+  async updateDrugCategory({ request, response, params, bouncer }: HttpContext) {
     try {
       const categoryData = await DrugCategory.findOrFail(params.id)
 
-      await categoryData.delete()
-
-      return response.ok({ message: 'Data kategori berhasil dihapus!' })
-    } catch (error) {
-      if (error.status === 404) {
-        throw new DataNotFoundException('Data kategori tidak ditemukan!')
+      if (await bouncer.with('DrugCategoryPolicy').denies('update', categoryData)) {
+        throw new ForbiddenException()
       }
-    }
-  }
 
-  async updateDrugCategory({ request, response, params }: HttpContext) {
-    try {
       const data = await request.validateUsing(addDrugCategoryValidator)
 
-      const categoryData = await DrugCategory.findOrFail(params.id)
       categoryData.categoryName = data.categoryName
 
       await categoryData.save()
@@ -79,24 +106,102 @@ export default class DrugsController {
         throw new ValidationException(error.messages)
       } else if (error.status === 404) {
         throw new DataNotFoundException('Data kategori tidak ditemukan!')
+      } else {
+        throw error
       }
     }
   }
 
-  async getCategoryDetail({ response, params }: HttpContext) {
+  async deleteDrugCategory({ response, params, bouncer }: HttpContext) {
     try {
-      const categoryData = await db.rawQuery(
-        'SELECT id, category_name FROM drug_categories WHERE id = ?',
-        [params.id]
-      )
+      const categoryData = await DrugCategory.findOrFail(params.id)
 
-      if (categoryData[0].length === 0) {
-        throw new DataNotFoundException('Data kategori tidak ditemukan')
+      if (await bouncer.with('DrugCategoryPolicy').denies('update', categoryData)) {
+        throw new ForbiddenException()
       }
 
-      return response.ok({ message: 'Data fetched!', data: categoryData[0][0] })
+      await categoryData.delete()
+
+      return response.ok({ message: 'Data kategori berhasil dihapus!' })
     } catch (error) {
       if (error.status === 404) {
+        throw new DataNotFoundException('Data kategori tidak ditemukan!')
+      } else {
+        throw error
+      }
+    }
+  }
+
+  async getDrugs({ request, response, auth, bouncer }: HttpContext) {
+    try {
+      if (await bouncer.with('DrugPolicy').denies('view')) {
+        throw new ForbiddenException()
+      }
+
+      const page = request.input('page', 1)
+      const perPage = request.input('perPage', 10)
+      const searchTerm = request.input('searchTerm', '')
+      const search = `%${searchTerm}%`
+      const drugData = await db.rawQuery(
+        `SELECT 
+        drugs.id,
+        drugs.drug, 
+        drugs.drug_generic_name, 
+        drug_categories.category_name, 
+        drugs.shelve, 
+        drugs.selling_price, 
+        drugs.composition 
+        FROM drugs 
+        JOIN drug_categories ON drugs.drug_category_id = drug_categories.id 
+        WHERE drugs.clinic_id = ?
+        AND (drugs.drug LIKE ? OR drugs.drug_generic_name LIKE ? OR drugs.shelve LIKE ? OR drug_categories.category_name LIKE ?)
+        LIMIT ?
+        OFFSET ?`,
+        [auth.user!.clinicId, search, search, search, search, perPage, skipData(page, perPage)]
+      )
+
+      return response.ok({ message: 'Data fetched!', data: drugData[0] })
+    } catch (error) {
+      throw error
+    }
+  }
+
+  async getDrugDetail({ response, params, bouncer }: HttpContext) {
+    try {
+      const drugData = await Drug.query()
+        .select(
+          'id',
+          'drug_number',
+          'drug',
+          'drug_generic_name',
+          'unit_name',
+          'composition',
+          'shelve',
+          'purchase_price',
+          'selling_price',
+          'total_stock',
+          'drug_category_id',
+          'drug_factory_id',
+          'clinic_id'
+        )
+        .preload('drugCategory', (builder) => {
+          builder.select('id', 'category_name')
+        })
+        .preload('drugFactory', (builder2) => {
+          builder2.select('id', 'factory_name')
+        })
+        .where('id', params.id)
+        .firstOrFail()
+
+      if (await bouncer.with('DrugPolicy').denies('update', drugData)) {
+        throw new ForbiddenException()
+      }
+
+      return response.ok({ message: 'Data fetched!', data: drugData })
+    } catch (error) {
+      if (error.status === 404) {
+        throw new DataNotFoundException('Data obat tidak ditemukan!')
+      } else {
         throw error
       }
     }
@@ -135,32 +240,6 @@ export default class DrugsController {
         throw new DataNotFoundException('Data unit tidak ditemukan!')
       }
     }
-  }
-
-  async getDrugs({ request, response, auth }: HttpContext) {
-    const page = request.input('page', 1)
-    const perPage = request.input('perPage', 10)
-    const searchTerm = request.input('searchTerm', '')
-    const search = `%${searchTerm}%`
-    const drugData = await db.rawQuery(
-      `SELECT 
-        drugs.id,
-        drugs.drug, 
-        drugs.drug_generic_name, 
-        drug_categories.category_name, 
-        drugs.shelve, 
-        drugs.selling_price, 
-        drugs.composition 
-        FROM drugs 
-        JOIN drug_categories ON drugs.drug_category_id = drug_categories.id 
-        WHERE drugs.clinic_id = ?
-        AND (drugs.drug LIKE ? OR drugs.drug_generic_name LIKE ? OR drugs.shelve LIKE ? OR drug_categories.category_name LIKE ?)
-        LIMIT ?
-        OFFSET ?`,
-      [auth.user!.clinicId, search, search, search, search, perPage, skipData(page, perPage)]
-    )
-
-    return response.ok({ message: 'Data fetched!', data: drugData[0] })
   }
 
   async deleteDrug({ response, params }: HttpContext) {
@@ -204,58 +283,6 @@ export default class DrugsController {
       } else if (error.status === 404) {
         throw new DataNotFoundException('Data obat tidak ditemukan!')
       }
-    }
-  }
-
-  async getDrugDetail({ response, params }: HttpContext) {
-    try {
-      const drugData = await db.rawQuery(
-        `SELECT
-          d.id,
-          d.drug_number,
-          d.drug,
-          d.drug_generic_name,
-          d.composition,
-          d.unit_name,
-          d.shelve,
-          d.purchase_price,
-          d.selling_price,
-          d.total_stock,
-          COUNT(psc.id) AS total_purchases,
-          JSON_OBJECT(
-            "label", dc.category_name,
-            "value", dc.id
-          ) AS drug_category,
-          JSON_OBJECT(
-            "label", df.factory_name,
-            "value", df.id
-          ) AS drug_factory,
-          JSON_OBJECT(
-            "label", u.unit_name,
-            "value", u.id
-          ) AS unit
-          FROM drugs d 
-          JOIN drug_categories dc ON d.drug_category_id = dc.id 
-          JOIN drug_factories df ON d.drug_factory_id = df.id
-          JOIN units u ON d.unit_id = u.id
-          LEFT JOIN purchase_shopping_carts psc ON psc.drug_id = d.id
-          WHERE d.id = ?`,
-        [params.id]
-      )
-
-      if (drugData[0].length === 0) {
-        throw new DataNotFoundException('Data obat tidak ditemukan!')
-      }
-
-      Object.assign(drugData[0][0], {
-        drug_category: JSON.parse(drugData[0][0].drug_category),
-        drug_factory: JSON.parse(drugData[0][0].drug_factory),
-        unit: JSON.parse(drugData[0][0].unit),
-      })
-
-      return response.ok({ message: 'Data fetched!', data: drugData[0][0] })
-    } catch (error) {
-      throw error
     }
   }
 }

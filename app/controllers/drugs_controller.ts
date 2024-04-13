@@ -211,8 +211,12 @@ export default class DrugsController {
     }
   }
 
-  async addDrug({ request, response, auth }: HttpContext) {
+  async addDrug({ request, response, auth, bouncer }: HttpContext) {
     try {
+      if (await bouncer.with('DrugPolicy').denies('add')) {
+        throw new ForbiddenException()
+      }
+
       const data = await request.validateUsing(addDrugValidator)
 
       const unitData = await Unit.findOrFail(data.unitId)
@@ -242,31 +246,24 @@ export default class DrugsController {
         throw new ValidationException(error.messages)
       } else if (error.status === 404) {
         throw new DataNotFoundException('Data unit tidak ditemukan!')
+      } else {
+        throw error
       }
     }
   }
 
-  async deleteDrug({ response, params }: HttpContext) {
+  async updateDrug({ request, response, params, bouncer }: HttpContext) {
     try {
       const drugData = await Drug.findOrFail(params.id)
 
-      await drugData.delete()
-
-      return response.ok({ message: 'Data obat berhasil dihapus!' })
-    } catch (error) {
-      if (error.status === 404) {
-        throw new DataNotFoundException('Data obat tidak ditemukan!')
+      if (await bouncer.with('DrugPolicy').denies('update', drugData)) {
+        throw new ForbiddenException()
       }
-    }
-  }
 
-  async updateDrug({ request, response, params }: HttpContext) {
-    try {
       const data = await request.validateUsing(addDrugValidator)
 
       const unitData = await Unit.findOrFail(data.unitId)
 
-      const drugData = await Drug.findOrFail(params.id)
       drugData.drug = data.drug
       drugData.drugGenericName = data.drugGenericName
       drugData.composition = data.composition
@@ -286,6 +283,28 @@ export default class DrugsController {
         throw new ValidationException(error.messages)
       } else if (error.status === 404) {
         throw new DataNotFoundException('Data obat tidak ditemukan!')
+      } else {
+        throw error
+      }
+    }
+  }
+
+  async deleteDrug({ response, params, bouncer }: HttpContext) {
+    try {
+      const drugData = await Drug.findOrFail(params.id)
+
+      if (await bouncer.with('DrugPolicy').denies('delete', drugData)) {
+        throw new ForbiddenException()
+      }
+
+      await drugData.delete()
+
+      return response.ok({ message: 'Data obat berhasil dihapus!' })
+    } catch (error) {
+      if (error.status === 404) {
+        throw new DataNotFoundException('Data obat tidak ditemukan!')
+      } else {
+        throw error
       }
     }
   }

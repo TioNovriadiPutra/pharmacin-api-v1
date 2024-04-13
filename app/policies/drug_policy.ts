@@ -5,15 +5,19 @@ import { Role } from '../enums/role_enum.js'
 import Drug from '#models/drug'
 
 export default class DrugPolicy extends BasePolicy {
+  add(user: User): AuthorizerResponse {
+    return user.roleId === Role['ADMIN'] || user.roleId === Role['ADMINISTRATOR']
+  }
+
   view(user: User): AuthorizerResponse {
-    return (
-      user.roleId === Role['ADMIN'] ||
-      user.roleId === Role['ADMINISTRATOR'] ||
-      user.roleId === Role['DOCTOR']
-    )
+    return this.add(user) || user.roleId === Role['DOCTOR']
   }
 
   update(user: User, drug: Drug): AuthorizerResponse {
     return this.view(user) && user.clinicId === drug.clinicId
+  }
+
+  delete(user: User, drug: Drug): AuthorizerResponse {
+    return this.add(user) && user.clinicId === drug.clinicId
   }
 }

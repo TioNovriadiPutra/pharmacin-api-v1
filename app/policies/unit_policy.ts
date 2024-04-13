@@ -7,4 +7,8 @@ export default class UnitPolicy extends BasePolicy {
   create(user: User): AuthorizerResponse {
     return user.roleId === Role['ADMIN']
   }
+
+  view(user: User): AuthorizerResponse {
+    return this.create(user) || user.roleId === Role['ADMINISTRATOR']
+  }
 }

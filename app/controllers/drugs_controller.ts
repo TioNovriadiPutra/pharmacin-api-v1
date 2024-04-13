@@ -182,13 +182,17 @@ export default class DrugsController {
           'total_stock',
           'drug_category_id',
           'drug_factory_id',
-          'clinic_id'
+          'clinic_id',
+          'unit_id'
         )
         .preload('drugCategory', (builder) => {
           builder.select('id', 'category_name')
         })
         .preload('drugFactory', (builder2) => {
           builder2.select('id', 'factory_name')
+        })
+        .preload('unit', (builder3) => {
+          builder3.select('id', 'unit_name')
         })
         .where('id', params.id)
         .firstOrFail()

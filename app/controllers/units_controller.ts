@@ -1,5 +1,6 @@
 import DataNotFoundException from '#exceptions/data_not_found_exception'
 import ForbiddenException from '#exceptions/forbidden_exception'
+import InternalServerErrorException from '#exceptions/internal_server_error_exception'
 import ValidationException from '#exceptions/validation_exception'
 import Unit from '#models/unit'
 import { addUnitValidator } from '#validators/unit'
@@ -7,18 +8,30 @@ import type { HttpContext } from '@adonisjs/core/http'
 import db from '@adonisjs/lucid/services/db'
 
 export default class UnitsController {
-  async getUnits({ response }: HttpContext) {
-    const unitData = await db.rawQuery(
-      `SELECT
+  async getUnits({ response, bouncer }: HttpContext) {
+    try {
+      if (await bouncer.with('UnitPolicy').denies('view')) {
+        throw new ForbiddenException()
+      }
+
+      const unitData = await db.rawQuery(
+        `SELECT
         id,
         unit_name
        FROM units`
-    )
+      )
 
-    return response.ok({
-      message: 'Data fetched!',
-      data: unitData[0],
-    })
+      return response.ok({
+        message: 'Data fetched!',
+        data: unitData[0],
+      })
+    } catch (error) {
+      if (error.status === 403) {
+        throw error
+      } else {
+        throw new InternalServerErrorException()
+      }
+    }
   }
 
   async addUnit({ request, response, bouncer }: HttpContext) {

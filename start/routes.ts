@@ -154,6 +154,7 @@ router
     router.get('/:id', [DrugsController, 'getDrugDetail'])
     router.put('/:id', [DrugsController, 'updateDrug'])
     router.delete('/:id', [DrugsController, 'deleteDrug'])
+    router.get('/factory/:id', [DrugsController, 'getDrugByDrugFactory'])
   })
   .prefix('/drug')
   .use(

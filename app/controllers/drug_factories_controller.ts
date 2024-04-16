@@ -9,41 +9,6 @@ import skipData from '../helpers/pagination.js'
 import ForbiddenException from '#exceptions/forbidden_exception'
 
 export default class DrugFactoriesController {
-  async addDrugFactory({ request, response, auth, bouncer }: HttpContext) {
-    try {
-      if (await bouncer.with('DrugFactoryPolicy').denies('viewAllAndAdd')) {
-        throw new ForbiddenException()
-      }
-
-      const data = await request.validateUsing(addClinicDrugFactory)
-
-      const clinicData = await Clinic.findOrFail(auth.user!.clinicId)
-
-      const drugFactoryData = await DrugFactory.firstOrCreate(
-        {
-          factoryName: data.factoryName,
-        },
-        {
-          factoryName: data.factoryName,
-          factoryEmail: data.factoryEmail,
-          factoryPhone: data.factoryPhone,
-        }
-      )
-
-      await clinicData.related('partnerships').attach([drugFactoryData.id])
-
-      return response.created({ message: 'Data pabrik berhasil ditambahkan!' })
-    } catch (error) {
-      if (error.status === 422) {
-        throw new ValidationException(error.messages)
-      } else if (error.status === 404) {
-        throw new DataNotFoundException('Data klinik tidak ditemukan!')
-      } else {
-        throw error
-      }
-    }
-  }
-
   async getFactories({ request, response, auth }: HttpContext) {
     const page = request.input('page', 1)
     const perPage = request.input('perPage', 10)
@@ -64,20 +29,6 @@ export default class DrugFactoriesController {
     )
 
     return response.ok({ message: 'Data fetched!', data: factoryData[0] })
-  }
-
-  async deleteFactory({ response, params, auth }: HttpContext) {
-    try {
-      const factoryData = await DrugFactory.findOrFail(params.id)
-
-      await factoryData.related('partnerships').detach([auth.user!.clinicId])
-
-      return response.ok({ message: 'Data pabrik berhasil dihapus!' })
-    } catch (error) {
-      if (error.status === 404) {
-        throw new DataNotFoundException('Data pabrik tidak ditemukan!')
-      }
-    }
   }
 
   async getFactoryDetail({ response, params, auth, bouncer }: HttpContext) {
@@ -116,6 +67,55 @@ export default class DrugFactoriesController {
         throw new DataNotFoundException('Data pabrik tidak ditemukan!')
       } else {
         throw error
+      }
+    }
+  }
+
+  async addDrugFactory({ request, response, auth, bouncer }: HttpContext) {
+    try {
+      if (await bouncer.with('DrugFactoryPolicy').denies('viewAllAndAdd')) {
+        throw new ForbiddenException()
+      }
+
+      const data = await request.validateUsing(addClinicDrugFactory)
+
+      const clinicData = await Clinic.findOrFail(auth.user!.clinicId)
+
+      const drugFactoryData = await DrugFactory.firstOrCreate(
+        {
+          factoryName: data.factoryName,
+        },
+        {
+          factoryName: data.factoryName,
+          factoryEmail: data.factoryEmail,
+          factoryPhone: data.factoryPhone,
+        }
+      )
+
+      await clinicData.related('partnerships').attach([drugFactoryData.id])
+
+      return response.created({ message: 'Data pabrik berhasil ditambahkan!' })
+    } catch (error) {
+      if (error.status === 422) {
+        throw new ValidationException(error.messages)
+      } else if (error.status === 404) {
+        throw new DataNotFoundException('Data klinik tidak ditemukan!')
+      } else {
+        throw error
+      }
+    }
+  }
+
+  async deleteFactory({ response, params, auth }: HttpContext) {
+    try {
+      const factoryData = await DrugFactory.findOrFail(params.id)
+
+      await factoryData.related('partnerships').detach([auth.user!.clinicId])
+
+      return response.ok({ message: 'Data pabrik berhasil dihapus!' })
+    } catch (error) {
+      if (error.status === 404) {
+        throw new DataNotFoundException('Data pabrik tidak ditemukan!')
       }
     }
   }

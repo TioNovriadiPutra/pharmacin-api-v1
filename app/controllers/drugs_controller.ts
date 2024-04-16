@@ -9,8 +9,10 @@ import idConverter from '../helpers/id_converter.js'
 import skipData from '../helpers/pagination.js'
 import Unit from '#models/unit'
 import ForbiddenException from '#exceptions/forbidden_exception'
+import DrugFactory from '#models/drug_factory'
 
 export default class DrugsController {
+  // Drug Category Service
   async getDrugCategories({ request, response, auth, bouncer }: HttpContext) {
     try {
       if (await bouncer.with('DrugCategoryPolicy').denies('viewAndAdd')) {
@@ -132,6 +134,7 @@ export default class DrugsController {
     }
   }
 
+  // Drug Service
   async getDrugs({ request, response, auth, bouncer }: HttpContext) {
     try {
       if (await bouncer.with('DrugPolicy').denies('view')) {
@@ -205,6 +208,36 @@ export default class DrugsController {
     } catch (error) {
       if (error.status === 404) {
         throw new DataNotFoundException('Data obat tidak ditemukan!')
+      } else {
+        throw error
+      }
+    }
+  }
+
+  async getDrugByDrugFactory({ response, params, auth, bouncer }: HttpContext) {
+    try {
+      if (await bouncer.with('DrugPolicy').denies('view')) {
+        throw new ForbiddenException()
+      }
+
+      const drugFactoryData = await DrugFactory.findOrFail(params.id)
+
+      const drugData = await db.rawQuery(
+        `SELECT
+          id,
+          drug
+         FROM drugs
+         WHERE drug_factory_id = ? AND clinic_id = ?`,
+        [drugFactoryData.id, auth.user!.clinicId]
+      )
+
+      return response.ok({
+        message: 'Data fetched!',
+        data: drugData[0],
+      })
+    } catch (error) {
+      if (error.status === 404) {
+        throw new DataNotFoundException('Data pabrik tidak ditemukan!')
       } else {
         throw error
       }

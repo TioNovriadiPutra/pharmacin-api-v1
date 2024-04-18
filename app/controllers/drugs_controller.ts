@@ -225,7 +225,8 @@ export default class DrugsController {
       const drugData = await db.rawQuery(
         `SELECT
           id,
-          drug
+          drug,
+          purchase_price
          FROM drugs
          WHERE drug_factory_id = ? AND clinic_id = ?`,
         [drugFactoryData.id, auth.user!.clinicId]

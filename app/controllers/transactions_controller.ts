@@ -96,8 +96,12 @@ export default class TransactionsController {
     }
   }
 
-  async addPurchaseTransaction({ request, response, auth }: HttpContext) {
+  async addPurchaseTransaction({ request, response, auth, bouncer }: HttpContext) {
     try {
+      if (await bouncer.with('TransactionPolicy').denies('view')) {
+        throw new ForbiddenException()
+      }
+
       const data = await request.validateUsing(addPurchaseTransactionValidator)
 
       const factoryData = await DrugFactory.findOrFail(data.factoryId)
@@ -110,13 +114,9 @@ export default class TransactionsController {
       newPurchaseTransaction.factoryEmail = factoryData.factoryEmail
       newPurchaseTransaction.factoryPhone = factoryData.factoryPhone
       newPurchaseTransaction.clinicId = auth.user!.clinicId
-      newPurchaseTransaction.drugFactoryId = data.factoryId
-
-      await newPurchaseTransaction.save()
-
       newPurchaseTransaction.invoiceNumber = `INV/${invoiceDate.year}${invoiceDate.month}${invoiceDate.day}/${idConverter(newPurchaseTransaction.id)}`
 
-      await newPurchaseTransaction.save()
+      await factoryData.related('purchaseTransactions').save(newPurchaseTransaction)
 
       data.purchaseItems.forEach(async (item) => {
         const drugData = await Drug.findOrFail(item.drugId)
@@ -129,19 +129,15 @@ export default class TransactionsController {
         newPurchaseShoppingCart.drugName = drugData.drug
         newPurchaseShoppingCart.purchasePrice = drugData.purchasePrice
         newPurchaseShoppingCart.purchaseTransactionId = newPurchaseTransaction.id
-        newPurchaseShoppingCart.drugId = item.drugId
-
-        await newPurchaseShoppingCart.save()
 
         const newDrugStock = new DrugStock()
         newDrugStock.totalStock = item.quantity
         newDrugStock.activeStock = item.quantity
         newDrugStock.expired = DateTime.fromISO(item.expired)
-        newDrugStock.drugId = item.drugId
-        newDrugStock.purchaseShoppingCartId = newPurchaseShoppingCart.id
+        newDrugStock.drugId = drugData.id
 
-        await drugData.save()
-        await newDrugStock.save()
+        await drugData.related('purchaseShoppingCarts').save(newPurchaseShoppingCart)
+        await newPurchaseShoppingCart.related('drugStock').save(newDrugStock)
 
         newDrugStock.batchNumber = `BN${invoiceDate.year}${invoiceDate.month}${invoiceDate.day}${idConverter(newDrugStock.id)}`
 
@@ -156,6 +152,8 @@ export default class TransactionsController {
         throw new ValidationException(error.messages)
       } else if (error.status === 404) {
         throw new DataNotFoundException('Data pabrik atau obat tidak ditemukan!')
+      } else {
+        throw error
       }
     }
   }

@@ -17,8 +17,12 @@ import SellingTransaction from '#models/selling_transaction'
 
 export default class TransactionsController {
   // Purchase Transaction
-  async getPurchaseTransactions({ request, response, auth }: HttpContext) {
+  async getPurchaseTransactions({ request, response, auth, bouncer }: HttpContext) {
     try {
+      if (await bouncer.with('TransactionPolicy').denies('view')) {
+        throw new ForbiddenException()
+      }
+
       const page = request.input('page', 1)
       const perPage = request.input('perPage', 20)
       const searchTerm = request.input('searchTerm', '')
@@ -44,10 +48,7 @@ export default class TransactionsController {
         data: purchaseDataList[0],
       })
     } catch (error) {
-      return response.badRequest({
-        message: 'ERROR',
-        error: error,
-      })
+      throw error
     }
   }
 
@@ -114,9 +115,12 @@ export default class TransactionsController {
       newPurchaseTransaction.factoryEmail = factoryData.factoryEmail
       newPurchaseTransaction.factoryPhone = factoryData.factoryPhone
       newPurchaseTransaction.clinicId = auth.user!.clinicId
-      newPurchaseTransaction.invoiceNumber = `INV/${invoiceDate.year}${invoiceDate.month}${invoiceDate.day}/${idConverter(newPurchaseTransaction.id)}`
 
       await factoryData.related('purchaseTransactions').save(newPurchaseTransaction)
+
+      newPurchaseTransaction.invoiceNumber = `INV/${invoiceDate.year}${invoiceDate.month}${invoiceDate.day}/${idConverter(newPurchaseTransaction.id)}`
+
+      await newPurchaseTransaction.save()
 
       data.purchaseItems.forEach(async (item) => {
         const drugData = await Drug.findOrFail(item.drugId)
@@ -154,22 +158,6 @@ export default class TransactionsController {
         throw new DataNotFoundException('Data pabrik atau obat tidak ditemukan!')
       } else {
         throw error
-      }
-    }
-  }
-
-  async deletePurchaseTransaction({ response, params }: HttpContext) {
-    try {
-      const purchaseTransactionData = await PurchaseTransaction.findOrFail(params.id)
-
-      await purchaseTransactionData.delete()
-
-      return response.ok({
-        message: 'Data pembelian berhasil dihapus!',
-      })
-    } catch (error) {
-      if (error.status === 404) {
-        throw new DataNotFoundException('Data pembelian tidak ditemukan!')
       }
     }
   }

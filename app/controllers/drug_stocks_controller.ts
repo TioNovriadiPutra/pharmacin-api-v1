@@ -1,10 +1,16 @@
+import ForbiddenException from '#exceptions/forbidden_exception'
 import type { HttpContext } from '@adonisjs/core/http'
 import db from '@adonisjs/lucid/services/db'
 
 export default class DrugStocksController {
-  async getStocks({ response, auth }: HttpContext) {
-    const stockPerItemData = await db.rawQuery(
-      `SELECT
+  async getStocks({ response, auth, bouncer }: HttpContext) {
+    try {
+      if (await bouncer.with('StockPolicy').denies('view')) {
+        throw new ForbiddenException()
+      }
+
+      const stockPerItemData = await db.rawQuery(
+        `SELECT
         drugs.id,
         drugs.drug,
         drug_factories.factory_name,
@@ -16,11 +22,11 @@ export default class DrugStocksController {
         JOIN drug_categories ON drugs.drug_category_id = drug_categories.id
         JOIN drug_factories ON drugs.drug_factory_id = drug_factories.id
         WHERE drugs.clinic_id = ?`,
-      [auth.user!.clinicId]
-    )
+        [auth.user!.clinicId]
+      )
 
-    const stockPerBatchData = await db.rawQuery(
-      `SELECT
+      const stockPerBatchData = await db.rawQuery(
+        `SELECT
         drug_stocks.id,
         drugs.drug,
         drug_factories.factory_name,
@@ -34,17 +40,20 @@ export default class DrugStocksController {
         JOIN drug_categories ON drugs.drug_category_id = drug_categories.id
         JOIN drug_factories ON drugs.drug_factory_id = drug_factories.id
         WHERE drugs.clinic_id = ?`,
-      [auth.user!.clinicId]
-    )
+        [auth.user!.clinicId]
+      )
 
-    const stockData = {
-      perItem: stockPerItemData[0],
-      perBatch: stockPerBatchData[0],
+      const stockData = {
+        perItem: stockPerItemData[0],
+        perBatch: stockPerBatchData[0],
+      }
+
+      return response.ok({
+        message: 'Data fetched!',
+        data: stockData,
+      })
+    } catch (error) {
+      throw error
     }
-
-    return response.ok({
-      message: 'Data fetched!',
-      data: stockData,
-    })
   }
 }

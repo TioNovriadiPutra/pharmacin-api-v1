@@ -51,4 +51,8 @@ vine.messagesProvider = new SimpleMessagesProvider({
   'actionName.required': 'Nama tindakan harus diisi!',
   'actionPrice.required': 'Harga tindakan harus diisi!',
   'actionPrice.positive': 'Harga tindakan harus bilangan positif!',
+  'nik.required': 'NIK harus diisi!',
+  'occupationId.required': 'Jenis pekerjaan harus diisi!',
+  'pob.required': 'Tempat lahir harus diisi!',
+  'dob.required': 'Tanggal lahir harus diisi!',
 })

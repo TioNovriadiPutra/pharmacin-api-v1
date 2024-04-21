@@ -1,5 +1,4 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import skipData from '../helpers/pagination.js'
 import db from '@adonisjs/lucid/services/db'
 import { addPatientValidator, patientQueueValidator } from '#validators/patient'
 import Patient from '#models/patient'
@@ -15,16 +14,11 @@ import moment from 'moment'
 import getRandomNumId from '../helpers/random_num.js'
 
 export default class PatientsController {
-  async getPatients({ request, response, auth, bouncer }: HttpContext) {
+  async getPatients({ response, auth, bouncer }: HttpContext) {
     try {
       if (await bouncer.with('PatientPolicy').denies('view')) {
         throw new ForbiddenException()
       }
-
-      const page = request.input('page', 1)
-      const perPage = request.input('perPage', 10)
-      const searchTerm = request.input('searchTerm', '')
-      const search = `%${searchTerm}%`
 
       const patientData = await db.rawQuery(
         `SELECT
@@ -37,18 +31,44 @@ export default class PatientsController {
           WHEN gender = 'male' THEN 'Laki-laki'
           WHEN gender = 'female' THEN 'Perempuan'
         END AS gender,
-        DATE_FORMAT(dob, "%Y-%m-%d") AS date_birth,
+        DATE_FORMAT(dob, "%d-%m-%Y") AS date_birth,
         ready
        FROM patients 
-       WHERE clinic_id = ? AND (full_name LIKE ? OR nik LIKE ? OR record_number LIKE ?)
-       ORDER BY full_name ASC
-       LIMIT ? OFFSET ?`,
-        [auth.user!.clinicId, search, search, search, perPage, skipData(page, perPage)]
+       WHERE clinic_id = ?
+       ORDER BY full_name ASC`,
+        [auth.user!.clinicId]
       )
+
+      const queueData = await db.rawQuery(
+        `SELECT
+          p.id,
+          q.registration_number,
+          p.full_name,
+          p.record_number,
+          p.gender,
+          DATE_FORMAT(q.created_at, "%d-%m-%Y, %H:%i") AS created_at,
+          CASE
+            WHEN q.status = "consult-wait" THEN "Belum Dipanggil"
+            WHEN q.status = "consulting" THEN "Sudah Dipanggil"
+            WHEN q.status = "payment" THEN "Pembayaran"
+            WHEN q.status = "drug-pick-up" THEN "Menunggu Obat"
+            WHEN q.status = "done" THEN "Selesai"
+          END AS status
+         FROM patients p
+         JOIN queues q ON p.id = q.patient_id
+         WHERE p.clinic_id = ?
+         ORDER BY p.full_name ASC`,
+        [auth.user!.id]
+      )
+
+      const finalPatientData = {
+        patientData: patientData[0],
+        queueData: queueData[0],
+      }
 
       return response.ok({
         message: 'Data fetched!',
-        data: patientData[0],
+        data: finalPatientData,
       })
     } catch (error) {
       throw error

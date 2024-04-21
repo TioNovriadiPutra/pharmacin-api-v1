@@ -13,6 +13,7 @@
 */
 
 export const policies = {
+  StockPolicy: () => import('#policies/stock_policy'),
   DrugPolicy: () => import('#policies/drug_policy'),
   DrugCategoryPolicy: () => import('#policies/drug_category_policy'),
   DrugFactoryPolicy: () => import('#policies/drug_factory_policy'),

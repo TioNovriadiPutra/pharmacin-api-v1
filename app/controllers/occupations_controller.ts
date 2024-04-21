@@ -5,9 +5,9 @@ export default class OccupationsController {
   async getOccupations({ response }: HttpContext) {
     const occupationData = await db.rawQuery(
       `SELECT
-          id,
-          occupation_name
-         FROM occupations`
+        id,
+        occupation_name
+       FROM occupations`
     )
 
     return response.ok({

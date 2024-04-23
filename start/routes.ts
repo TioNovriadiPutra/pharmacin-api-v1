@@ -204,7 +204,6 @@ router
 router
   .group(() => {
     router.get('/', [PatientsController, 'getPatients'])
-    router.get('/queue', [PatientsController, 'getQueuingPatients'])
     router.post('/', [PatientsController, 'addPatient'])
     router.post('/queue/:id', [PatientsController, 'addPatientQueue'])
   })

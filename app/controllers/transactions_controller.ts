@@ -34,7 +34,7 @@ export default class TransactionsController {
           pt.invoice_number,
           pt.total_price,
           df.factory_name,
-          DATE_FORMAT(pt.created_at, "%Y-%m-%d") AS created_at
+          DATE_FORMAT(pt.created_at, "%d-%m-%Y") AS created_at
           FROM purchase_transactions pt
           JOIN drug_factories df ON pt.drug_factory_id = df.id
           WHERE pt.clinic_id = ? AND (pt.invoice_number LIKE ? OR df.factory_name LIKE ?)
@@ -54,38 +54,54 @@ export default class TransactionsController {
 
   async getPurchaseTransactionDetail({ response, bouncer, params }: HttpContext) {
     try {
-      const transactionData = await PurchaseTransaction.query()
-        .select('id', 'invoice_number', 'total_price', 'factory_name', 'created_at', 'clinic_id')
-        .preload('purchaseShoppingCarts', (builder) => {
-          builder.select(
-            'id',
-            'drug_name',
-            'expired',
-            'quantity',
-            'purchase_price',
-            'total_price',
-            'purchase_transaction_id'
-          )
-        })
-        .where('id', params.id)
-        .firstOrFail()
+      const transactionData = await db.rawQuery(
+        `SELECT
+          pt.id,
+          pt.invoice_number,
+          pt.total_price,
+          pt.factory_name,
+          DATE_FORMAT(pt.created_at, "%d-%m-%Y, %H:%i") AS created_at,
+          pt.clinic_id AS clinicId,
+          CONCAT(
+            "[",
+            GROUP_CONCAT(
+              JSON_OBJECT(
+                "id", psc.id,
+                "drug_name", psc.drug_name,
+                "expired", DATE_FORMAT(psc.expired, "%d-%m-%Y"),
+                "quantity", psc.quantity,
+                "purchase_price", psc.purchase_price,
+                "total_price", psc.total_price
+              )
+            ),
+            "]"
+          ) AS shopping_carts
+         FROM purchase_transactions pt
+         JOIN purchase_shopping_carts psc ON pt.id = psc.purchase_transaction_id
+         WHERE pt.id = ?`,
+        [params.id]
+      )
 
-      console.log(transactionData)
+      if (transactionData[0].length === 0) {
+        throw new DataNotFoundException('Data pembelian tidak ditemukan!')
+      }
 
-      if (await bouncer.with('TransactionPolicy').denies('viewDetailPurchase', transactionData)) {
+      if (
+        await bouncer.with('TransactionPolicy').denies('viewDetailPurchase', transactionData[0][0])
+      ) {
         throw new ForbiddenException()
       }
 
+      Object.assign(transactionData[0][0], {
+        shopping_carts: JSON.parse(transactionData[0][0].shopping_carts),
+      })
+
       return response.ok({
         message: 'Data fetched!',
-        data: transactionData,
+        data: transactionData[0][0],
       })
     } catch (error) {
-      if (error.status === 404) {
-        throw new DataNotFoundException('Data pembelian tidak ditemukan!')
-      } else {
-        throw error
-      }
+      throw error
     }
   }
 

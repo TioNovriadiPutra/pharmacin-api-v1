@@ -45,8 +45,11 @@ export default class PatientsController {
           q.registration_number,
           p.full_name,
           p.record_number,
-          p.gender,
-          DATE_FORMAT(q.created_at, "%d-%m-%Y, %H:%i") AS created_at,
+          CASE
+            WHEN p.gender = 'male' THEN 'Laki-laki'
+            WHEN p.gender = 'female' THEN 'Perempuan'
+          END AS gender,
+          DATE_FORMAT(q.created_at, "%d-%m-%Y, %H:%i", "id_ID") AS created_at,
           CASE
             WHEN q.status = "consult-wait" THEN "Belum Dipanggil"
             WHEN q.status = "consulting" THEN "Sudah Dipanggil"
@@ -58,7 +61,7 @@ export default class PatientsController {
          JOIN queues q ON p.id = q.patient_id
          WHERE p.clinic_id = ?
          ORDER BY p.full_name ASC`,
-        [auth.user!.id]
+        [auth.user!.clinicId]
       )
 
       const finalPatientData = {
@@ -69,46 +72,6 @@ export default class PatientsController {
       return response.ok({
         message: 'Data fetched!',
         data: finalPatientData,
-      })
-    } catch (error) {
-      throw error
-    }
-  }
-
-  async getQueuingPatients({ response, auth, bouncer }: HttpContext) {
-    try {
-      if (await bouncer.with('PatientPolicy').denies('view')) {
-        throw new ForbiddenException()
-      }
-
-      const patientData = await db.rawQuery(
-        `SELECT
-        q.id,
-        q.registration_number,
-        p.full_name,
-        p.record_number,
-        CASE
-          WHEN p.gender = 'male' THEN 'Laki-laki'
-          WHEN p.gender = 'female' THEN 'Perempuan'
-        END AS gender,
-        DATE_FORMAT(q.created_at, "%Y-%m-%d") AS created_at,
-        CASE
-          WHEN q.status = 'consult-wait' THEN 'Belum Dipanggil'
-          WHEN q.status = 'consulting' THEN 'Sudah Dipanggil'
-          WHEN q.status = 'drug-wait' THEN 'Menunggu Obat'
-          WHEN q.status = 'drug-pick-up' THEN 'Obat diserahkan'
-          ELSE 'selesai'
-        END as status
-       FROM patients p
-       JOIN queues q ON p.id = q.patient_id
-       WHERE p.ready = 0 AND p.clinic_id = ?
-       ORDER BY q.created_at ASC`,
-        [auth.user!.clinicId]
-      )
-
-      return response.ok({
-        message: 'Data fetched!',
-        data: patientData[0],
       })
     } catch (error) {
       throw error
@@ -159,13 +122,14 @@ export default class PatientsController {
 
   async addPatientQueue({ request, response, auth, params, bouncer }: HttpContext) {
     try {
-      if (await bouncer.with('QueuePolicy').denies('addPatientQueue')) {
+      const patientData = await Patient.findOrFail(params.id)
+
+      if (await bouncer.with('PatientPolicy').denies('addQueue', patientData)) {
         throw new ForbiddenException()
       }
 
       const data = await request.validateUsing(patientQueueValidator)
 
-      const patientData = await Patient.findOrFail(params.id)
       patientData.ready = false
 
       const newQueue = new Queue()
@@ -183,7 +147,7 @@ export default class PatientsController {
         throw new ValidationException(error.messages)
       } else if (error.status === 404) {
         throw new DataNotFoundException('Data pasien tidak ditemukan!')
-      } else if (error.status === 403) {
+      } else {
         throw error
       }
     }

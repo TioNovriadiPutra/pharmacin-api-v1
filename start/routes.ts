@@ -141,6 +141,7 @@ router
 router
   .group(() => {
     router.get('/', [DrugsController, 'getDrugs'])
+    router.get('/assessment', [DrugsController, 'getDrugsAssessment'])
     router.post('/', [DrugsController, 'addDrug'])
     router
       .group(() => {

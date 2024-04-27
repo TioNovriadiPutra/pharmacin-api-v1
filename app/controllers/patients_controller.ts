@@ -41,7 +41,7 @@ export default class PatientsController {
 
       const queueData = await db.rawQuery(
         `SELECT
-          p.id,
+          q.id,
           q.registration_number,
           p.full_name,
           p.record_number,

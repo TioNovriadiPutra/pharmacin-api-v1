@@ -18,6 +18,10 @@ export default class QueuePolicy extends BasePolicy {
     return user.roleId === Role['DOCTOR']
   }
 
+  viewDoctorQueueDetail(user: User, queue: any): AuthorizerResponse {
+    return this.viewDoctor(user) && queue.clinic_id === user.clinicId
+  }
+
   changeStatusToConsultingQueue(user: User, queue: Queue): AuthorizerResponse {
     return (
       user.roleId === Role['DOCTOR_ASSISTANT'] &&

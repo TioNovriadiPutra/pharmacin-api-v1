@@ -245,6 +245,32 @@ export default class DrugsController {
     }
   }
 
+  async getDrugsAssessment({ response, auth, bouncer }: HttpContext) {
+    try {
+      if (await bouncer.with('DrugPolicy').denies('view')) {
+        throw new ForbiddenException()
+      }
+
+      const drugData = await db.rawQuery(
+        `SELECT
+          id,
+          drug,
+          unit_name,
+          selling_price
+         FROM drugs
+         WHERE clinic_id = ? AND total_stock > 0`,
+        [auth.user?.clinicId]
+      )
+
+      return response.ok({
+        message: 'Data fetched!',
+        data: drugData[0],
+      })
+    } catch (error) {
+      throw error
+    }
+  }
+
   async addDrug({ request, response, auth, bouncer }: HttpContext) {
     try {
       if (await bouncer.with('DrugPolicy').denies('add')) {

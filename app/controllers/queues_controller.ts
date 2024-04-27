@@ -76,9 +76,11 @@ export default class QueuesController {
       ]
     )
 
+    const total = queueData[0].filter((item: any) => item.status === 'Belum Dipanggil').length
+
     return response.ok({
       message: 'Data fetched',
-      data: { queue: queueData[0], total: queueData[0].length },
+      data: { queue: queueData[0], total: total },
     })
   }
 
@@ -102,7 +104,7 @@ export default class QueuesController {
           p.full_name,
           p.record_number,
           q.registration_number,
-          DATE_FORMAT(q.created_at, '%Y-%m-%d') AS queue_date
+          DATE_FORMAT(q.created_at, '%d-%m-%Y') AS queue_date
          FROM queues q
          JOIN patients p ON q.patient_id = p.id
          WHERE q.clinic_id = ? AND q.doctor_id = ? AND q.status = ?
@@ -119,33 +121,35 @@ export default class QueuesController {
     }
   }
 
-  async getDoctorConsultingQueueDetail({ response, params, bouncer, auth }: HttpContext) {
+  async getDoctorConsultingQueueDetail({ response, params, bouncer }: HttpContext) {
     try {
-      if (await bouncer.with('QueuePolicy').denies('viewDoctor')) {
-        throw new ForbiddenException()
-      }
-
       const queueData = await db.rawQuery(
         `SELECT
+          q.id,
           q.registration_number,
           p.record_number,
           p.full_name,
           CONCAT(p.pob, ", ", DATE_FORMAT(p.dob, "%d %M %Y")) AS ttl,
           p.address,
-          DATE_FORMAT(q.created_at, "%Y-%m-%d") AS queue_date,
+          DATE_FORMAT(q.created_at, "%d-%m-%Y") AS queue_date,
           CONCAT(pd.full_name, ", ", ds.speciality_title) AS doctor,
-          p.allergy
+          p.allergy,
+          q.clinic_id
          FROM queues q
          JOIN patients p ON q.patient_id = p.id
          JOIN doctors d ON q.doctor_id = d.id
          JOIN profiles pd ON d.profile_id = pd.id
          JOIN doctor_specialists ds ON d.speciality_id = ds.id
-         WHERE q.id = ? AND pd.user_id = ? AND q.status = ?`,
-        [params.id, auth.user!.id, QueueStatus['CONSULTING']]
+         WHERE q.id = ? AND q.status = ?`,
+        [params.id, QueueStatus['CONSULTING']]
       )
 
       if (queueData[0].length === 0) {
         throw new DataNotFoundException('Data pasien tidak ditemukan!')
+      }
+
+      if (await bouncer.with('QueuePolicy').denies('viewDoctorQueueDetail', queueData[0][0])) {
+        throw new ForbiddenException()
       }
 
       return response.ok({

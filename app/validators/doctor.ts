@@ -28,17 +28,14 @@ export const addAssessmentValidator = vine.compile(
     assessment: vine.string().optional(),
     objective: vine.string().optional(),
     plan: vine.string().optional(),
-    totalPrice: vine.number(),
-    drugCarts: vine
-      .array(
-        vine.object({
-          drugId: vine.number(),
-          instruction: vine.string(),
-          quantity: vine.number(),
-          totalPrice: vine.number(),
-        })
-      )
-      .optional(),
-    actions: vine.array(vine.number()).optional(),
+    drugCarts: vine.array(
+      vine.object({
+        drugId: vine.number(),
+        instruction: vine.string(),
+        quantity: vine.number(),
+        totalPrice: vine.number(),
+      })
+    ),
+    actions: vine.array(vine.number()),
   })
 )

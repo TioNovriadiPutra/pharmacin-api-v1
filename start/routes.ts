@@ -106,14 +106,6 @@ router
     router.get('/fee', [ClinicsController, 'getClinicAdminFee'])
     router.put('/', [ClinicsController, 'updateClinic'])
     router.patch('/fee', [ClinicsController, 'updateAdminFee'])
-    router
-      .group(() => {
-        router.get('/', [ActionsController, 'getActions'])
-        router.post('/', [ActionsController, 'addAction'])
-        router.put('/:id', [ActionsController, 'updateAction'])
-        router.delete('/:id', [ActionsController, 'deleteAction'])
-      })
-      .prefix('/action')
   })
   .prefix('/clinic')
   .use(
@@ -176,6 +168,7 @@ router
       .prefix('/purchase')
     router
       .group(() => {
+        router.get('/queue', [TransactionsController, 'getSellingTransactionsQueue'])
         router.get('/:id', [TransactionsController, 'getSellingTransactionDetail'])
         router.put('/:id', [TransactionsController, 'sellingPayment'])
         router.delete('/cart/:id', [TransactionsController, 'deleteSellingShoppingCart'])
@@ -218,13 +211,11 @@ router
 // Queue Endpoint
 router
   .group(() => {
-    router.get('/consult-wait', [QueueController, 'getConsultWaitQueue'])
-    router.get('/drug-pick-up', [QueueController, 'getPharmaciDrugPickUpQueue'])
-    router.get('/doctor/consult-wait', [QueueController, 'getDoctorConsultWaitQueue'])
-    router.get('/doctor/consulting', [QueueController, 'getDoctorConsultingQueue'])
-    router.get('/doctor/consulting/:id', [QueueController, 'getDoctorConsultingQueueDetail'])
-    router.patch('/consult-wait/:id', [QueueController, 'changeStatusToConsultingQueue'])
-    router.delete('/cancel/:id', [QueueController, 'cancelQueue'])
+    router.get('/doctor/consult-wait', [QueueController, 'getDoctorConsultWaitQueue']) // Doctor Assistant
+    router.get('/doctor/consulting', [QueueController, 'getDoctorConsultingQueue']) // Doctor
+    router.get('/doctor/consulting/:id', [QueueController, 'getDoctorConsultingQueueDetail']) // Doctor
+    router.patch('/consult-wait/:id', [QueueController, 'changeStatusToConsultingQueue']) // Doctor Assistant
+    router.delete('/cancel/:id', [QueueController, 'cancelQueue']) // Doctor Assistant
   })
   .prefix('/queue')
   .use(
@@ -282,6 +273,20 @@ router
     router.get('/', [SpecialitiesController, 'getSpecialities'])
   })
   .prefix('/speciality')
+  .use(
+    middleware.auth({
+      guards: ['api'],
+    })
+  )
+
+router
+  .group(() => {
+    router.get('/', [ActionsController, 'getActions'])
+    router.post('/', [ActionsController, 'addAction'])
+    router.put('/:id', [ActionsController, 'updateAction'])
+    router.delete('/:id', [ActionsController, 'deleteAction'])
+  })
+  .prefix('/action')
   .use(
     middleware.auth({
       guards: ['api'],

@@ -55,4 +55,9 @@ vine.messagesProvider = new SimpleMessagesProvider({
   'occupationId.required': 'Jenis pekerjaan harus diisi!',
   'pob.required': 'Tempat lahir harus diisi!',
   'dob.required': 'Tanggal lahir harus diisi!',
+  'drugCarts.required': 'Keranjang obat harus diisi!',
+  'drugCarts.*.instruction.required': 'Instruksi penggunaan obat harus diisi!',
+  'drugCarts.*.quantity.required': 'Jumlah obat harus diisi!',
+  'drugCarts.*.totalPrice.required': 'Harga total obat harus diisi!',
+  'actions.required': 'Keranjang tindakan harus diisi!',
 })

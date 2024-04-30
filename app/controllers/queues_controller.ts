@@ -9,48 +9,22 @@ import DoctorAssistant from '#models/doctor_assistant'
 import Doctor from '#models/doctor'
 
 export default class QueuesController {
-  async getConsultWaitQueue({ response, auth, bouncer }: HttpContext) {
+  async getDoctorConsultWaitQueue({ response, auth, bouncer }: HttpContext) {
     try {
-      if (await bouncer.with('QueuePolicy').denies('view')) {
+      if (await bouncer.with('QueuePolicy').denies('viewQueueDoctorAssistant')) {
         throw new ForbiddenException()
       }
 
+      const doctorAssistant = await DoctorAssistant.query()
+        .whereHas('profile', (profileBuilder) => {
+          profileBuilder.whereHas('user', (userBuilder) => {
+            userBuilder.where('id', auth.user!.id)
+          })
+        })
+        .firstOrFail()
+
       const queueData = await db.rawQuery(
         `SELECT
-          q.id,
-          q.registration_number,
-          p.full_name,
-          p.record_number,
-          p.gender,
-          q.created_at,
-          q.status
-         FROM queues q
-         JOIN patients p ON q.patient_id = p.id
-         WHERE q.clinic_id = ? AND q.status = ?
-         ORDER BY q.created_at ASC`,
-        [auth.user!.clinicId, QueueStatus['CONSULT_WAIT']]
-      )
-
-      return response.ok({
-        message: 'Data fetched!',
-        data: { queue: queueData[0], total: queueData[0].length },
-      })
-    } catch (error) {
-      throw error
-    }
-  }
-
-  async getDoctorConsultWaitQueue({ response, auth }: HttpContext) {
-    const doctorAssistant = await DoctorAssistant.query()
-      .whereHas('profile', (builderProfile) => {
-        builderProfile.whereHas('user', (builderUser) => {
-          builderUser.where('id', auth.user!.id)
-        })
-      })
-      .firstOrFail()
-
-    const queueData = await db.rawQuery(
-      `SELECT
         q.id,
         p.full_name,
         p.record_number,
@@ -68,20 +42,27 @@ export default class QueuesController {
           WHEN q.status = 'consulting' THEN 1
         END,
         q.created_at ASC`,
-      [
-        auth.user!.clinicId,
-        doctorAssistant.doctorId,
-        QueueStatus['CONSULT_WAIT'],
-        QueueStatus['CONSULTING'],
-      ]
-    )
+        [
+          auth.user!.clinicId,
+          doctorAssistant.doctorId,
+          QueueStatus['CONSULT_WAIT'],
+          QueueStatus['CONSULTING'],
+        ]
+      )
 
-    const total = queueData[0].filter((item: any) => item.status === 'Belum Dipanggil').length
+      const total = queueData[0].filter((item: any) => item.status === 'Belum Dipanggil').length
 
-    return response.ok({
-      message: 'Data fetched',
-      data: { queue: queueData[0], total: total },
-    })
+      return response.ok({
+        message: 'Data fetched',
+        data: { queue: queueData[0], total: total },
+      })
+    } catch (error) {
+      if (error.status === 404) {
+        throw new DataNotFoundException('Data asisten dokter tidak ditemukan!')
+      } else {
+        throw error
+      }
+    }
   }
 
   async getDoctorConsultingQueue({ response, auth, bouncer }: HttpContext) {
@@ -155,35 +136,6 @@ export default class QueuesController {
       return response.ok({
         message: 'Data fetched!',
         data: queueData[0][0],
-      })
-    } catch (error) {
-      throw error
-    }
-  }
-
-  async getPharmaciDrugPickUpQueue({ response, bouncer, auth }: HttpContext) {
-    try {
-      if (await bouncer.with('QueuePolicy').denies('viewPharmacyQueue')) {
-        throw new ForbiddenException()
-      }
-
-      const queueData = await db.rawQuery(
-        `SELECT
-          q.id,
-          p.full_name,
-          p.record_number,
-          q.registration_number,
-          q.status
-         FROM queues q
-         JOIN patients p ON q.patient_id = p.id
-         WHERE q.clinic_id = ? AND q.status = ?
-         ORDER BY q.updated_at ASC`,
-        [auth.user!.clinicId, QueueStatus['DRUG_PICK_UP']]
-      )
-
-      return response.ok({
-        message: 'Data fetched!',
-        data: queueData[0],
       })
     } catch (error) {
       throw error

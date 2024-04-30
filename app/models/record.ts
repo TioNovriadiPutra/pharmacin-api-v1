@@ -6,6 +6,7 @@ import Doctor from './doctor.js'
 import Clinic from './clinic.js'
 import SellingTransaction from './selling_transaction.js'
 import RecordDrugAssessment from './record_drug_assessment.js'
+import { Gender } from '../enums/gender_enum.js'
 
 export default class Record extends BaseModel {
   @column({ isPrimary: true })
@@ -37,6 +38,39 @@ export default class Record extends BaseModel {
 
   @column()
   declare assessment?: string
+
+  @column()
+  declare nik: string
+
+  @column()
+  declare fullName: string
+
+  @column()
+  declare address: string
+
+  @column()
+  declare recordNumber: string
+
+  @column()
+  declare gender: Gender
+
+  @column()
+  declare pob: string
+
+  @column.date()
+  declare dob: DateTime
+
+  @column()
+  declare alamatPasien: string
+
+  @column()
+  declare phone: string
+
+  @column()
+  declare occupationName: string
+
+  @column()
+  declare allergy?: string
 
   @column()
   declare doctorName: string

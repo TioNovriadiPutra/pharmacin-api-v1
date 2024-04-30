@@ -22,9 +22,13 @@ export default class QueuePolicy extends BasePolicy {
     return this.viewDoctor(user) && queue.clinic_id === user.clinicId
   }
 
+  viewQueueDoctorAssistant(user: User): AuthorizerResponse {
+    return user.roleId === Role['DOCTOR_ASSISTANT']
+  }
+
   changeStatusToConsultingQueue(user: User, queue: Queue): AuthorizerResponse {
     return (
-      user.roleId === Role['DOCTOR_ASSISTANT'] &&
+      this.viewQueueDoctorAssistant(user) &&
       user.clinicId === queue.clinicId &&
       queue.status === QueueStatus['CONSULT_WAIT']
     )
@@ -32,9 +36,5 @@ export default class QueuePolicy extends BasePolicy {
 
   cancelQueue(user: User, queue: Queue): AuthorizerResponse {
     return this.addPatientQueue(user) || this.changeStatusToConsultingQueue(user, queue)
-  }
-
-  viewPharmacyQueue(user: User) {
-    return user.roleId === Role['NURSE']
   }
 }

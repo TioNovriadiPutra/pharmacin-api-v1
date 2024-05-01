@@ -72,35 +72,34 @@ export default class UsersController {
     }
   }
 
-  async getAdministratorDetail({ response, bouncer, params }: HttpContext) {
+  async getUserDetail({ response, bouncer, params }: HttpContext) {
     try {
-      if (await bouncer.with('UserPolicy').denies('view')) {
-        throw new ForbiddenException()
-      }
-
       const userData = await db.rawQuery(
         `SELECT
           u.id,
           p.full_name,
-          JSON_OBJECT(
-            'label', IF(p.gender = 'male', 'Laki-laki', 'Perempuan'),
-            'value', p.gender
-          ) AS gender,
+          CASE
+            WHEN p.gender = "male" THEN "Laki-laki"
+            WHEN p.gender = "female" THEN "Perempuan"
+          END AS gender,
           p.phone,
-          p.address
+          p.address,
+          u.clinic_id AS clinicId
          FROM users u
          JOIN profiles p ON u.id = p.user_id
-         WHERE u.id = ? AND u.role_id = ?`,
-        [params.id, Role['ADMINISTRATOR']]
+         WHERE u.id = ?`,
+        [params.id]
       )
 
       if (userData[0].length === 0) {
         throw new DataNotFoundException('Data akun tidak ditemukan!')
       }
 
-      Object.assign(userData[0][0], {
-        gender: JSON.parse(userData[0][0].gender),
-      })
+      if (await bouncer.with('UserPolicy').denies('viewDetail', userData[0][0])) {
+        throw new ForbiddenException()
+      }
+
+      delete userData[0][0].clinicId
 
       return response.ok({
         message: 'Data fetched!',
@@ -116,7 +115,7 @@ export default class UsersController {
       const administratorData = await User.findOrFail(params.id)
       const profileData = await Profile.findByOrFail('user_id', params.id)
 
-      if (await bouncer.with('UserPolicy').denies('delete', administratorData)) {
+      if (await bouncer.with('UserPolicy').denies('handleAdministrator', administratorData)) {
         throw new ForbiddenException()
       }
 
@@ -147,7 +146,7 @@ export default class UsersController {
     try {
       const administratorData = await User.findOrFail(params.id)
 
-      if (await bouncer.with('UserPolicy').denies('delete', administratorData)) {
+      if (await bouncer.with('UserPolicy').denies('handleAdministrator', administratorData)) {
         throw new ForbiddenException()
       }
 

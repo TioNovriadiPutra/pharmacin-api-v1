@@ -9,8 +9,9 @@ export default class extends BaseSchema {
       table.string('drug_name', 50).notNullable()
       table.integer('selling_price').notNullable()
       table.string('instruction', 50).notNullable()
-      table.integer('unit_name', 30).notNullable()
+      table.string('unit_name', 30).notNullable()
       table.integer('total_price').notNullable()
+      table.integer('quantity').notNullable()
       table.timestamp('created_at').notNullable().defaultTo(this.now())
       table.timestamp('updated_at').notNullable().defaultTo(this.now())
       table

@@ -70,7 +70,6 @@ router
     router
       .group(() => {
         router.get('/', [UsersController, 'getAdministrators'])
-        router.get('/:id', [UsersController, 'getAdministratorDetail'])
         router.put('/:id', [UsersController, 'updateAdministrator'])
         router.delete('/:id', [UsersController, 'deleteAdministrator'])
       })
@@ -78,7 +77,6 @@ router
     router
       .group(() => {
         router.get('/', [EmployeesController, 'getEmployees'])
-        router.get('/:id', [EmployeesController, 'getEmployeeDetail'])
         router.put('/:id', [EmployeesController, 'updateEmployee'])
         router.delete('/:id', [EmployeesController, 'deleteEmployee'])
       })
@@ -91,6 +89,7 @@ router
         router.delete('/:id', [DoctorAssistantsController, 'deleteAssistant'])
       })
       .prefix('/assistant')
+    router.get('/:id', [UsersController, 'getUserDetail'])
   })
   .prefix('/user')
   .use(

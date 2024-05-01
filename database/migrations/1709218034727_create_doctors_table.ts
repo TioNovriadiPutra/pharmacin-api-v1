@@ -22,6 +22,13 @@ export default class extends BaseSchema {
         .inTable('doctor_specialists')
         .onDelete('SET NULL')
         .nullable()
+      table
+        .integer('clinic_id')
+        .unsigned()
+        .references('id')
+        .inTable('clinics')
+        .onDelete('CASCADE')
+        .notNullable()
     })
   }
 

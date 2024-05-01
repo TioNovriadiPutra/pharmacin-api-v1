@@ -7,7 +7,7 @@ export default class extends BaseSchema {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('id').primary()
       table
-        .enum('status', ['consult-wait', 'consulting', 'drug-wait', 'drug-pick-up', 'done'])
+        .enum('status', ['consult-wait', 'consulting', 'payment', 'drug-pick-up', 'done'])
         .defaultTo('consult-wait')
       table.string('registration_number', 20).notNullable()
       table.timestamp('created_at').notNullable().defaultTo(this.now())

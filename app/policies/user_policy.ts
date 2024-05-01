@@ -8,7 +8,11 @@ export default class UserPolicy extends BasePolicy {
     return user.roleId === Role['ADMIN']
   }
 
-  delete(user: User, employee: User): AuthorizerResponse {
+  viewDetail(user: User, employee: User): AuthorizerResponse {
     return this.view(user) && user.clinicId === employee.clinicId
+  }
+
+  handleAdministrator(user: User, employee: User): AuthorizerResponse {
+    return this.viewDetail(user, employee) && employee.roleId === Role['ADMINISTRATOR']
   }
 }

@@ -33,6 +33,13 @@ export default class extends BaseSchema {
         .inTable('patients')
         .onDelete('SET NULL')
         .nullable()
+      table
+        .integer('queue_id')
+        .unsigned()
+        .references('id')
+        .inTable('queues')
+        .onDelete('SET NULL')
+        .nullable()
     })
   }
 

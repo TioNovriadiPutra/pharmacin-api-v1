@@ -6,9 +6,11 @@ export default class extends BaseSchema {
   async up() {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('id').primary()
+      table.string('drug_number', 50).nullable().unique()
       table.string('drug', 50).notNullable()
       table.string('drug_generic_name', 50).nullable()
-      table.string('dose', 20).notNullable()
+      table.integer('composition').notNullable()
+      table.string('unit_name', 30).notNullable()
       table.integer('shelve').nullable()
       table.integer('purchase_price').notNullable()
       table.integer('selling_price').notNullable()
@@ -36,6 +38,13 @@ export default class extends BaseSchema {
         .inTable('clinics')
         .onDelete('CASCADE')
         .notNullable()
+      table
+        .integer('unit_id')
+        .unsigned()
+        .references('id')
+        .inTable('units')
+        .onDelete('SET NULL')
+        .nullable()
     })
   }
 

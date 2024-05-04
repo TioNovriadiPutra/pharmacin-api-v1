@@ -92,6 +92,9 @@ export default class DoctorsController {
         throw new ForbiddenException()
       }
 
+      delete doctorData[0][0].roleId
+      delete doctorData[0][0].clinicId
+
       Object.assign(doctorData[0][0], {
         gender: JSON.parse(doctorData[0][0].gender),
         speciality: JSON.parse(doctorData[0][0].speciality),
@@ -156,7 +159,11 @@ export default class DoctorsController {
         message: 'Data dokter berhasil dihapus!',
       })
     } catch (error) {
-      throw error
+      if (error.status === 404) {
+        throw new DataNotFoundException('Data dokter tidak ditemukan!')
+      } else {
+        throw error
+      }
     }
   }
 

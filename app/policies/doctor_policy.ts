@@ -19,7 +19,7 @@ export default class DoctorPolicy extends BasePolicy {
   }
 
   create(user: User, doctor: User): AuthorizerResponse {
-    return this.view(user) && user.clinicId === doctor.clinicId
+    return this.admin(user) && user.clinicId === doctor.clinicId && doctor.roleId === Role['DOCTOR']
   }
 
   assessment(user: User, queue: Queue): AuthorizerResponse {

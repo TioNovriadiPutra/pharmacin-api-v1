@@ -10,7 +10,7 @@ export const updateDoctorAssistantValidator = vine.compile(
         strictMode: false,
       }
     }),
-    address: vine.string().optional(),
+    address: vine.string(),
     doctorId: vine.number(),
   })
 )

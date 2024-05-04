@@ -102,9 +102,7 @@ router
 router
   .group(() => {
     router.get('/', [ClinicsController, 'getClinicDetail'])
-    router.get('/fee', [ClinicsController, 'getClinicAdminFee'])
     router.put('/', [ClinicsController, 'updateClinic'])
-    router.patch('/fee', [ClinicsController, 'updateAdminFee'])
   })
   .prefix('/clinic')
   .use(
@@ -278,10 +276,12 @@ router
     })
   )
 
+// Action Endpoint
 router
   .group(() => {
     router.get('/', [ActionsController, 'getActions'])
     router.post('/', [ActionsController, 'addAction'])
+    router.get('/:id', [ActionsController, 'getActionDetail'])
     router.put('/:id', [ActionsController, 'updateAction'])
     router.delete('/:id', [ActionsController, 'deleteAction'])
   })

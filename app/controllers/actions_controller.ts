@@ -32,6 +32,38 @@ export default class ActionsController {
     }
   }
 
+  async getActionDetail({ response, bouncer, params }: HttpContext) {
+    try {
+      const actionData = await db.rawQuery(
+        `SELECT
+          id,
+          action_name,
+          action_price,
+          clinic_id AS clinicId
+         FROM actions
+         WHERE id = ?`,
+        [params.id]
+      )
+
+      if (actionData[0].length === 0) {
+        throw new DataNotFoundException('Data tindakan tidak ditemukan')
+      }
+
+      if (await bouncer.with('ActionPolicy').denies('handle', actionData[0][0])) {
+        throw new ForbiddenException()
+      }
+
+      delete actionData[0][0].clinicId
+
+      return response.ok({
+        message: 'Data fetched!',
+        data: actionData[0][0],
+      })
+    } catch (error) {
+      throw error
+    }
+  }
+
   async addAction({ request, response, auth, bouncer }: HttpContext) {
     try {
       if (await bouncer.with('ActionPolicy').denies('create')) {

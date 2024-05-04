@@ -16,6 +16,7 @@ import ValidationException from '#exceptions/validation_exception'
 import Doctor from '#models/doctor'
 import ForbiddenException from '#exceptions/forbidden_exception'
 import DoctorAssistant from '#models/doctor_assistant'
+import DataNotFoundException from '#exceptions/data_not_found_exception'
 
 export default class AuthController {
   async registerAdmin({ request, response }: HttpContext) {
@@ -96,6 +97,8 @@ export default class AuthController {
 
       const data = await request.validateUsing(registerDoctorAssistantValidator)
 
+      const doctorData = await Doctor.findOrFail(data.doctorId)
+
       const newUser = new User()
       newUser.email = data.email
       newUser.password = data.password
@@ -109,7 +112,7 @@ export default class AuthController {
       newProfile.address = data.address
 
       const newDoctorAssistant = new DoctorAssistant()
-      newDoctorAssistant.doctorId = data.doctorId
+      newDoctorAssistant.doctorId = doctorData.id
 
       await newUser.related('profile').save(newProfile)
       await newProfile.related('doctorAssistant').save(newDoctorAssistant)
@@ -120,6 +123,8 @@ export default class AuthController {
     } catch (error) {
       if (error.status === 422) {
         throw new ValidationException(error.messages)
+      } else if (error.status === 404) {
+        throw new DataNotFoundException('Data dokter tidak ditemukan!')
       } else {
         throw error
       }

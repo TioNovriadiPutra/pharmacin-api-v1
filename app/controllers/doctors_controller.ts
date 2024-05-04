@@ -31,6 +31,7 @@ export default class DoctorsController {
       const doctorData = await db.rawQuery(
         `SELECT
           u.id,
+          d.id AS doctor_id,
           u.email,
           CONCAT(p.full_name, ", ", ds.speciality_title) AS full_name,
           CASE

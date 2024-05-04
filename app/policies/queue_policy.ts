@@ -14,6 +14,10 @@ export default class QueuePolicy extends BasePolicy {
     return user.roleId === Role['ADMIN'] || this.addPatientQueue(user)
   }
 
+  viewPaymentQueue(user: User): AuthorizerResponse {
+    return this.view(user) || user.roleId === Role['NURSE']
+  }
+
   viewDoctor(user: User) {
     return user.roleId === Role['DOCTOR']
   }

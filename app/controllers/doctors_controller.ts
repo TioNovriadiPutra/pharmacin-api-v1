@@ -2,7 +2,6 @@ import DataNotFoundException from '#exceptions/data_not_found_exception'
 import ForbiddenException from '#exceptions/forbidden_exception'
 import type { HttpContext } from '@adonisjs/core/http'
 import db from '@adonisjs/lucid/services/db'
-import { Role } from '../enums/role_enum.js'
 import User from '#models/user'
 import Profile from '#models/profile'
 import { addAssessmentValidator, updateDoctorValidator } from '#validators/doctor'
@@ -32,9 +31,12 @@ export default class DoctorsController {
       const doctorData = await db.rawQuery(
         `SELECT
           u.id,
-          d.id AS doctor_id,
+          u.email,
           CONCAT(p.full_name, ", ", ds.speciality_title) AS full_name,
-          IF(p.gender = "male", "Laki-laki", "Perempuan") AS gender,
+          CASE
+            WHEN p.gender = "male" THEN "Laki-laki"
+            WHEN p.gender = "female" THEN "Perempuan"
+          END AS gender,
           p.phone,
           ds.speciality_name,
           p.address
@@ -58,12 +60,9 @@ export default class DoctorsController {
 
   async getDoctorDetail({ response, bouncer, params }: HttpContext) {
     try {
-      if (await bouncer.with('DoctorPolicy').denies('view')) {
-        throw new ForbiddenException()
-      }
-
       const doctorData = await db.rawQuery(
         `SELECT
+          u.id,
           p.full_name,
           JSON_OBJECT(
             'label', IF(p.gender = 'male', 'Laki-laki', 'Perempuan'),
@@ -74,17 +73,23 @@ export default class DoctorsController {
             'label', CONCAT(ds.speciality_name, ' (', ds.speciality_title, ')'),
             'value', ds.id
           ) AS speciality,
-          p.address
+          p.address,
+          u.role_id AS roleId,
+          u.clinic_id AS clinicId
          FROM users u
          JOIN profiles p ON u.id = p.user_id
          JOIN doctors d ON p.id = d.profile_id
          JOIN doctor_specialists ds ON d.speciality_id = ds.id
-         WHERE u.id = ? AND u.role_id = ?`,
-        [params.id, Role['DOCTOR']]
+         WHERE u.id = ?`,
+        [params.id]
       )
 
       if (doctorData[0].length === 0) {
         throw new DataNotFoundException('Data dokter tidak ditemukan!')
+      }
+
+      if (await bouncer.with('DoctorPolicy').denies('viewDetail', doctorData[0][0])) {
+        throw new ForbiddenException()
       }
 
       Object.assign(doctorData[0][0], {

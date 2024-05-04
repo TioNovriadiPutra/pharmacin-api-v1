@@ -142,6 +142,24 @@ export default class QueuesController {
     }
   }
 
+  async getPaymentQueue({ response, bouncer }: HttpContext) {
+    try {
+      if (await bouncer.with('QueuePolicy').denies('viewPaymentQueue')) {
+        throw new ForbiddenException()
+      }
+
+      const queueData = await db.rawQuery(
+        `SELECT
+          q.id,
+          p.full_name,
+          p.record_number,
+         FROM queues q
+         JOIN patients p ON q.patient_id = p.id
+         JOIN selling_transactions st ON q.id = st.queue_id`
+      )
+    } catch (error) {}
+  }
+
   async changeStatusToConsultingQueue({ response, params, bouncer }: HttpContext) {
     try {
       const queueData = await Queue.findOrFail(params.id)

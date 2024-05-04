@@ -37,41 +37,6 @@ export default class UsersController {
     }
   }
 
-  async getAdministrators({ response, auth, bouncer }: HttpContext) {
-    try {
-      if (await bouncer.with('UserPolicy').denies('view')) {
-        throw new ForbiddenException()
-      }
-
-      const userData = await db.rawQuery(
-        `SELECT
-          u.id,
-          u.email,
-          p.full_name,
-          CASE
-            WHEN p.gender = 'male' THEN 'Laki-laki'
-            WHEN p.gender = 'female' THEN 'Perempuan'
-          END AS gender,
-          p.phone,
-          p.address
-         FROM users u
-         JOIN profiles p ON u.id = p.user_id
-         WHERE u.clinic_id = ? AND u.role_id = ?
-         ORDER BY p.full_name ASC`,
-        [auth.user!.clinicId, Role['ADMINISTRATOR']]
-      )
-
-      return response.ok({
-        message: 'Data fetched!',
-        data: userData[0],
-      })
-    } catch (error) {
-      if (error.status === 403) {
-        throw error
-      }
-    }
-  }
-
   async getUserDetail({ response, bouncer, params }: HttpContext) {
     try {
       const userData = await db.rawQuery(
@@ -107,6 +72,41 @@ export default class UsersController {
       })
     } catch (error) {
       throw error
+    }
+  }
+
+  async getAdministrators({ response, auth, bouncer }: HttpContext) {
+    try {
+      if (await bouncer.with('UserPolicy').denies('view')) {
+        throw new ForbiddenException()
+      }
+
+      const userData = await db.rawQuery(
+        `SELECT
+          u.id,
+          u.email,
+          p.full_name,
+          CASE
+            WHEN p.gender = 'male' THEN 'Laki-laki'
+            WHEN p.gender = 'female' THEN 'Perempuan'
+          END AS gender,
+          p.phone,
+          p.address
+         FROM users u
+         JOIN profiles p ON u.id = p.user_id
+         WHERE u.clinic_id = ? AND u.role_id = ?
+         ORDER BY p.full_name ASC`,
+        [auth.user!.clinicId, Role['ADMINISTRATOR']]
+      )
+
+      return response.ok({
+        message: 'Data fetched!',
+        data: userData[0],
+      })
+    } catch (error) {
+      if (error.status === 403) {
+        throw error
+      }
     }
   }
 

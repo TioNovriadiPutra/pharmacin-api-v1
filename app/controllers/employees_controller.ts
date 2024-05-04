@@ -42,44 +42,6 @@ export default class EmployeesController {
     }
   }
 
-  async getEmployeeDetail({ response, bouncer, params }: HttpContext) {
-    try {
-      if (await bouncer.with('EmployeePolicy').denies('detail')) {
-        throw new ForbiddenException()
-      }
-
-      const employeeData = await db.rawQuery(
-        `SELECT
-          p.full_name,
-          JSON_OBJECT(
-            'label', IF(p.gender = 'male', 'Laki-laki', 'Perempuan'),
-            'value', p.gender
-          ) AS gender,
-          p.phone,
-          p.address
-         FROM users u
-         JOIN profiles p ON u.id = p.user_id
-         WHERE u.id = ? AND u.role_id = ?`,
-        [params.id, Role['NURSE']]
-      )
-
-      if (employeeData[0].length === 0) {
-        throw new DataNotFoundException('Data karyawan tidak ditemukan!')
-      }
-
-      Object.assign(employeeData[0][0], {
-        gender: JSON.parse(employeeData[0][0].gender),
-      })
-
-      return response.ok({
-        message: 'Data fetched!',
-        data: employeeData[0][0],
-      })
-    } catch (error) {
-      throw error
-    }
-  }
-
   async updateEmployee({ request, response, params, bouncer }: HttpContext) {
     try {
       const userData = await User.findOrFail(params.id)

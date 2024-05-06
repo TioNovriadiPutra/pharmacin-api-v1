@@ -18,6 +18,10 @@ export default class TransactionPolicy extends BasePolicy {
     return user.roleId === Role['NURSE']
   }
 
+  viewQueueDetail(user: User, transaction: SellingTransaction): AuthorizerResponse {
+    return this.viewQueue(user) && transaction.clinicId === user.clinicId
+  }
+
   handleCart(user: User, transaction: SellingTransaction): AuthorizerResponse {
     return (
       this.viewQueue(user) &&

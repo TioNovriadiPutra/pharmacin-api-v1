@@ -9,7 +9,7 @@ import DoctorAssistant from '#models/doctor_assistant'
 import Doctor from '#models/doctor'
 
 export default class QueuesController {
-  async getDoctorConsultWaitQueue({ response, auth, bouncer }: HttpContext) {
+  async getConsultWaitQueue({ response, auth, bouncer }: HttpContext) {
     try {
       if (await bouncer.with('QueuePolicy').denies('viewQueueDoctorAssistant')) {
         throw new ForbiddenException()
@@ -25,23 +25,22 @@ export default class QueuesController {
 
       const queueData = await db.rawQuery(
         `SELECT
-        q.id,
-        p.full_name,
-        p.record_number,
-        q.registration_number,
-        CASE
-          WHEN q.status = 'consult-wait' THEN 'Belum Dipanggil'
-          WHEN q.status = 'consulting' THEN 'Sudah Dipanggil'
-        END AS status
-       FROM queues q
-       JOIN patients p ON q.patient_id = p.id
-       WHERE q.clinic_id = ? AND q.doctor_id = ? AND q.status = ? OR q.status = ?
-       ORDER BY
-        CASE
-          WHEN q.status = 'consult-wait' THEN 0
-          WHEN q.status = 'consulting' THEN 1
-        END,
-        q.created_at ASC`,
+          q.id,
+          p.full_name,
+          p.record_number,
+          q.registration_number,
+          CASE
+            WHEN q.status = 'consult-wait' THEN 'Belum Dipanggil'
+            WHEN q.status = 'consulting' THEN 'Sudah Dipanggil'
+          END AS status
+         FROM queues q
+         JOIN patients p ON q.patient_id = p.id
+         WHERE q.clinic_id = ? AND q.doctor_id = ? AND q.status = ? OR q.status = ?
+         ORDER BY
+          CASE
+            WHEN q.status = 'consult-wait' THEN 0
+            WHEN q.status = 'consulting' THEN 1
+          END ASC, q.created_at ASC`,
         [
           auth.user!.clinicId,
           doctorAssistant.doctorId,
@@ -142,7 +141,7 @@ export default class QueuesController {
     }
   }
 
-  async getPaymentQueue({ response, bouncer }: HttpContext) {
+  async getPaymentQueue({ response, bouncer, auth }: HttpContext) {
     try {
       if (await bouncer.with('QueuePolicy').denies('viewPaymentQueue')) {
         throw new ForbiddenException()
@@ -150,14 +149,28 @@ export default class QueuesController {
 
       const queueData = await db.rawQuery(
         `SELECT
-          q.id,
+          st.id,
           p.full_name,
           p.record_number,
-         FROM queues q
-         JOIN patients p ON q.patient_id = p.id
-         JOIN selling_transactions st ON q.id = st.queue_id`
+          st.registration_number,
+          CASE
+            WHEN st.status = 0 THEN "Belum Dibayar"
+            WHEN st.status = 1 THEN "Sudah Dibayar"
+          END AS status
+         FROM selling_transactions st
+         JOIN patients p ON st.patient_id = p.id
+         WHERE DATE(st.created_at) = CURRENT_DATE() AND st.clinic_id = ?
+         ORDER BY st.status ASC, st.created_at ASC`,
+        [auth.user!.clinicId]
       )
-    } catch (error) {}
+
+      return response.ok({
+        message: 'Data fetched!',
+        data: queueData[0],
+      })
+    } catch (error) {
+      throw error
+    }
   }
 
   async changeStatusToConsultingQueue({ response, params, bouncer }: HttpContext) {

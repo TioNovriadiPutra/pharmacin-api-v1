@@ -171,146 +171,32 @@ export default class TransactionsController {
   }
 
   // Selling Transaction
-  async getSellingTransactionsQueue({ response, bouncer, auth }: HttpContext) {
-    try {
-      if (await bouncer.with('TransactionPolicy').denies('viewQueue')) {
-        throw new ForbiddenException()
-      }
-
-      const sellingTransactionData = await db.rawQuery(
-        `SELECT
-          st.id,
-          p.full_name,
-          p.record_number,
-          st.registration_number,
-          CASE
-            WHEN st.status = 0 THEN 'Belum Dibayar'
-            WHEN st.status = 1 THEN 'Sudah Dibayar'
-          END AS payment_status
-         FROM selling_transactions st
-         JOIN patients p ON st.patient_id = p.id
-         WHERE st.clinic_id = ? AND DATE(st.created_at) = CURDATE()
-         ORDER BY st.status ASC, st.created_at ASC`,
-        [auth.user!.clinicId]
-      )
-
-      return response.ok({
-        message: 'Data fetched!',
-        data: sellingTransactionData[0],
-      })
-    } catch (error) {
-      throw error
-    }
-  }
-
   async getSellingTransactionDetail({ response, bouncer, params }: HttpContext) {
     try {
-      const sellingTransactionData = await db.rawQuery(
-        `SELECT
-          st.id,
-          CASE
-            WHEN st.status = 0 THEN 'Belum Dibayar'
-            WHEN st.status = 1 THEN 'Sudah Dibayar'
-          END AS payment_status,
-          st.registration_number,
-          p.record_number,
-          p.full_name,
-          CONCAT(p.pob, ", ", DATE_FORMAT(p.dob, "%d %M %Y")) AS ttl,
-          p.address,
-          DATE_FORMAT(st.created_at, "%d-%m-%Y") AS created_at,
-          r.doctor_name,
-          p.allergy,
-          st.total_price AS sub_total,
-          c.selling_fee,
-          st.total_price + c.selling_fee AS total,
-          CONCAT(
-            "[",
-            GROUP_CONCAT(
-              JSON_OBJECT(
-                "id", ssc.drug_name,
-                "quantity", ssc.quantity,
-                "unit_name", ssc.unit_name,
-                "instruction", ssc.instruction,
-                "sub_total", ssc.total_price
-              )
-            ),
-            "]"
-          ) AS drug_carts,
-          CAST(SUM(ssc.total_price) AS SIGNED) AS total_drug_carts,
-          CONCAT(
-            "[",
-            GROUP_CONCAT(
-              JSON_OBJECT(
-                "id", ac.id,
-                "action_name", ac.action_name,
-                "action_price", ac.action_price
-              )
-            ),
-            "]"
-          ) AS action_carts,
-          CAST(SUM(ac.action_price) AS SIGNED) AS total_action_carts,
-          st.clinic_id
-         FROM selling_transactions st
-         JOIN patients p ON st.patient_id = p.id
-         JOIN records r ON st.record_id = r.id
-         JOIN clinics c ON st.clinic_id = c.id
-         JOIN selling_shopping_carts ssc ON st.id = ssc.selling_transaction_id
-         JOIN action_carts ac ON st.id = ac.selling_transaction_id
-         WHERE st.id = ?`,
-        [params.id]
-      )
+      const sellingData = await SellingTransaction.query()
+        .select('id', 'registration_number', 'total_price as sub_total_price', 'clinic_id')
+        .preload('patient', (patientBuilder) => {
+          patientBuilder.select(
+            'record_number',
+            'full_name',
+            db.raw(
+              'SELECT CONCAT(pob, ", ", DATE_FORMAT(dob, "%d %M %Y")) FROM patients WHERE patients.id = selling_transactions.patient_id AS ttl'
+            )
+          )
+        })
+        .where('id', params.id)
+        .firstOrFail()
 
-      if (sellingTransactionData[0].length === 0) {
-        throw new DataNotFoundException('Data penjualan tidak ditemukan!')
-      }
-
-      Object.assign(sellingTransactionData[0][0], {
-        drug_carts: JSON.parse(sellingTransactionData[0][0].drug_carts),
-        action_carts: JSON.parse(sellingTransactionData[0][0].action_carts),
-      })
-
-      if (
-        await bouncer.with('TransactionPolicy').denies('handleCart', sellingTransactionData[0][0])
-      ) {
+      if (await bouncer.with('TransactionPolicy').denies('viewQueueDetail', sellingData)) {
         throw new ForbiddenException()
       }
 
       return response.ok({
         message: 'Data fetched!',
-        data: sellingTransactionData[0][0],
+        data: sellingData,
       })
     } catch (error) {
       throw error
-    }
-  }
-
-  async sellingPayment({ response, bouncer, params }: HttpContext) {
-    try {
-      const sellingTransactionData = await SellingTransaction.findOrFail(params.id)
-      const sellingShoppingCartData = await SellingShoppingCart.query().where(
-        'selling_transaction_id',
-        sellingTransactionData.id
-      )
-
-      if (await bouncer.with('TransactionPolicy').denies('handleCart', sellingTransactionData)) {
-        throw new ForbiddenException()
-      }
-
-      for (const cart of sellingShoppingCartData) {
-        await DrugStock.reduceStockOnSelling(cart)
-      }
-
-      await sellingTransactionData.merge({ status: true }).save()
-
-      return response.ok({
-        message: 'Penjualan berhasil!',
-      })
-    } catch (error) {
-      if (error.status === 404) {
-        throw new DataNotFoundException('Data transaksi tidak ditemukan!')
-      } else {
-        throw error
-      }
     }
   }
 

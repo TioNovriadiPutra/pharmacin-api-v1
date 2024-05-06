@@ -165,9 +165,7 @@ router
       .prefix('/purchase')
     router
       .group(() => {
-        router.get('/queue', [TransactionsController, 'getSellingTransactionsQueue'])
         router.get('/:id', [TransactionsController, 'getSellingTransactionDetail'])
-        router.put('/:id', [TransactionsController, 'sellingPayment'])
         router.delete('/cart/:id', [TransactionsController, 'deleteSellingShoppingCart'])
       })
       .prefix('/selling')
@@ -208,8 +206,9 @@ router
 // Queue Endpoint
 router
   .group(() => {
-    router.get('/doctor/consult-wait', [QueueController, 'getDoctorConsultWaitQueue']) // Doctor Assistant
+    router.get('/consult-wait', [QueueController, 'getConsultWaitQueue']) // Doctor Assistant
     router.get('/doctor/consulting', [QueueController, 'getDoctorConsultingQueue']) // Doctor
+    router.get('/payment', [QueueController, 'getPaymentQueue']) // Doctor Assistant
     router.get('/doctor/consulting/:id', [QueueController, 'getDoctorConsultingQueueDetail']) // Doctor
     router.patch('/consult-wait/:id', [QueueController, 'changeStatusToConsultingQueue']) // Doctor Assistant
     router.delete('/cancel/:id', [QueueController, 'cancelQueue']) // Doctor Assistant

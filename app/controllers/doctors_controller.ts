@@ -206,6 +206,8 @@ export default class DoctorsController {
         .where('id', params.id)
         .firstOrFail()
 
+      console.log(queueData)
+
       if (await bouncer.with('DoctorPolicy').denies('assessment', queueData)) {
         throw new ForbiddenException()
       }

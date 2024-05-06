@@ -14,6 +14,7 @@ import skipData from '../helpers/pagination.js'
 import ForbiddenException from '#exceptions/forbidden_exception'
 import SellingShoppingCart from '#models/selling_shopping_cart'
 import SellingTransaction from '#models/selling_transaction'
+import ActionCart from '#models/action_cart'
 
 export default class TransactionsController {
   // Purchase Transaction
@@ -173,34 +174,98 @@ export default class TransactionsController {
   // Selling Transaction
   async getSellingTransactionDetail({ response, bouncer, params }: HttpContext) {
     try {
-      const sellingData = await SellingTransaction.query()
-        .select('id', 'registration_number', 'total_price as sub_total_price', 'clinic_id')
-        .preload('patient', (patientBuilder) => {
-          patientBuilder.select(
-            'record_number',
-            'full_name',
-            db.raw(
-              'SELECT CONCAT(pob, ", ", DATE_FORMAT(dob, "%d %M %Y")) FROM patients WHERE patients.id = selling_transactions.patient_id AS ttl'
-            )
-          )
-        })
-        .where('id', params.id)
-        .firstOrFail()
+      const transactionData = await db.rawQuery(
+        `SELECT
+          st.id,
+          st.registration_number,
+          p.record_number,
+          p.full_name,
+          CONCAT(p.pob, ", ", DATE_FORMAT(p.dob, "%d %M %Y")) AS ttl,
+          p.address,
+          DATE_FORMAT(st.created_at, "%d-%m-%Y") AS tgl_periksa,
+          r.doctor_name,
+          p.allergy,
+          st.total_price as sub_total_price,
+          c.outpatient_fee,
+          st.total_price + c.outpatient_fee AS total_price,
+          CONCAT(
+            "[",
+            GROUP_CONCAT(
+              JSON_OBJECT(
+                "id", ssc.id,
+                "drug_name", ssc.drug_name,
+                "quantity", ssc.quantity,
+                "unit_name", ssc.unit_name,
+                "instruction", ssc.instruction,
+                "total_price", ssc.total_price
+              )
+            ),
+            "]"
+          ) AS drug_carts,
+          CAST(SUM(ssc.total_price) AS INTEGER) AS drug_carts_total_price,
+          CONCAT(
+            "[",
+            GROUP_CONCAT(
+              JSON_OBJECT(
+                "id", ac.id,
+                "action_name", ac.action_name,
+                "action_price", ac.action_price
+              )
+            ),
+            "]"
+          ) AS action_carts,
+          CAST(SUM(ac.action_price) AS INTEGER) AS action_carts_total_price,
+          st.clinic_id AS clinicId
+         FROM selling_transactions st
+         JOIN patients p ON st.patient_id = p.id
+         JOIN records r ON st.record_id = r.id
+         JOIN clinics c ON st.clinic_id = c.id
+         LEFt JOIN selling_shopping_carts ssc ON st.id = ssc.selling_transaction_id
+         LEFT JOIN action_carts ac ON st.id = ac.selling_transaction_id
+         WHERE st.id = ?
+         GROUP BY st.id`,
+        [params.id]
+      )
 
-      if (await bouncer.with('TransactionPolicy').denies('viewQueueDetail', sellingData)) {
+      if (transactionData[0].length === 0) {
+        throw new DataNotFoundException('Data penjualan tidak ditemukan!')
+      }
+
+      if (
+        await bouncer.with('TransactionPolicy').denies('viewQueueDetail', transactionData[0][0])
+      ) {
         throw new ForbiddenException()
       }
 
+      delete transactionData[0][0].clinicId
+
+      console.log(transactionData[0][0].drug_carts[0])
+
+      Object.assign(transactionData[0][0], {
+        drug_carts: JSON.parse(transactionData[0][0].drug_carts).some(
+          (cart: any) => cart.id === null
+        )
+          ? []
+          : JSON.parse(transactionData[0][0].drug_carts),
+        drug_carts_total_price: transactionData[0][0].drug_carts_total_price || 0,
+        action_carts: JSON.parse(transactionData[0][0].action_carts).some(
+          (cart: any) => cart.id === null
+        )
+          ? []
+          : JSON.parse(transactionData[0][0].action_carts),
+        action_carts_total_price: transactionData[0][0].action_carts_total_price || 0,
+      })
+
       return response.ok({
         message: 'Data fetched!',
-        data: sellingData,
+        data: transactionData[0][0],
       })
     } catch (error) {
       throw error
     }
   }
 
-  async deleteSellingShoppingCart({ response, bouncer, params }: HttpContext) {
+  async deleteSellingShoppingCartItem({ response, bouncer, params }: HttpContext) {
     try {
       const cartData = await SellingShoppingCart.findOrFail(params.id)
       const transactionData = await SellingTransaction.findOrFail(cartData.sellingTransactionId)
@@ -220,6 +285,32 @@ export default class TransactionsController {
     } catch (error) {
       if (error.status === 404) {
         throw new DataNotFoundException('Data obat tidak ditemukan!')
+      } else {
+        throw error
+      }
+    }
+  }
+
+  async deleteActionCartItem({ response, bouncer, params }: HttpContext) {
+    try {
+      const cartData = await ActionCart.findOrFail(params.id)
+      const transactionData = await SellingTransaction.findOrFail(cartData.sellingTransactionId)
+
+      if (await bouncer.with('TransactionPolicy').denies('handleCart', transactionData)) {
+        throw new ForbiddenException()
+      }
+
+      transactionData.totalPrice = transactionData.totalPrice - cartData.actionPrice
+
+      await transactionData.save()
+      await cartData.delete()
+
+      return response.ok({
+        message: 'Keranjang tindakan berhasil diubah!',
+      })
+    } catch (error) {
+      if (error.status === 404) {
+        throw new DataNotFoundException('Data tindakan tidak ditemukan!')
       } else {
         throw error
       }

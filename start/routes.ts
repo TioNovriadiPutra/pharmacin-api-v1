@@ -166,7 +166,8 @@ router
     router
       .group(() => {
         router.get('/:id', [TransactionsController, 'getSellingTransactionDetail'])
-        router.delete('/cart/:id', [TransactionsController, 'deleteSellingShoppingCart'])
+        router.delete('/cart/:id', [TransactionsController, 'deleteSellingShoppingCartItem'])
+        router.delete('/cart/action/:id', [TransactionsController, 'deleteActionCartItem'])
       })
       .prefix('/selling')
   })

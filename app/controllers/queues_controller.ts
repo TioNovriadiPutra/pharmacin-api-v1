@@ -159,7 +159,9 @@ export default class QueuesController {
           END AS status
          FROM selling_transactions st
          JOIN patients p ON st.patient_id = p.id
-         WHERE DATE(st.created_at) = CURRENT_DATE() AND st.clinic_id = ?
+         WHERE 
+          DATE_FORMAT(CONVERT_TZ(st.created_at, '+00:00', '+07:00'), "%d-%m-%Y") = DATE_FORMAT(CONVERT_TZ(CURRENT_DATE(), '+00:00', '+07:00'), "%d-%m-%Y") 
+          AND st.clinic_id = ?
          ORDER BY st.status ASC, st.created_at ASC`,
         [auth.user!.clinicId]
       )

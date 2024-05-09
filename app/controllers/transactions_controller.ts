@@ -210,7 +210,7 @@ export default class TransactionsController {
             ),
             "]"
           ) AS drug_carts,
-          CAST(SUM(ssc.total_price) AS INTEGER) AS drug_carts_total_price,
+          CAST(SUM(ssc.total_price) AS SIGNED) AS drug_carts_total_price,
           CONCAT(
             "[",
             GROUP_CONCAT(
@@ -222,7 +222,7 @@ export default class TransactionsController {
             ),
             "]"
           ) AS action_carts,
-          CAST(SUM(ac.action_price) AS INTEGER) AS action_carts_total_price,
+          CAST(SUM(ac.action_price) AS SIGNED) AS action_carts_total_price,
           st.clinic_id AS clinicId
          FROM selling_transactions st
          JOIN patients p ON st.patient_id = p.id
@@ -302,7 +302,7 @@ export default class TransactionsController {
             ),
             "]"
           ) AS drug_carts,
-          CAST(SUM(ssc.total_price) AS INTEGER) AS drug_carts_total_price,
+          CAST(SUM(ssc.total_price) AS SIGNED) AS drug_carts_total_price,
           st.clinic_id AS clinicId
          FROM selling_transactions st
          JOIN patients p ON st.patient_id = p.id

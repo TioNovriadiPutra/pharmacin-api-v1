@@ -244,6 +244,7 @@ export default class DoctorsController {
       newSellingTransaction.clinicId = queueData.clinicId
       newSellingTransaction.patientId = queueData.patientId
       newSellingTransaction.queueId = queueData.id
+      newSellingTransaction.invoiceNumber = ''
 
       const drugCartData = []
       const drugAssessmentData = []

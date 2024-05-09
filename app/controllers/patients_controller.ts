@@ -49,7 +49,7 @@ export default class PatientsController {
             WHEN p.gender = 'male' THEN 'Laki-laki'
             WHEN p.gender = 'female' THEN 'Perempuan'
           END AS gender,
-          DATE_FORMAT(q.created_at, "%d-%m-%Y, %H:%i", "id_ID") AS created_at,
+          DATE_FORMAT(q.created_at, "%d-%m-%Y, %H:%i") AS created_at,
           CASE
             WHEN q.status = "consult-wait" THEN "Belum Dipanggil"
             WHEN q.status = "consulting" THEN "Sudah Dipanggil"
@@ -99,6 +99,7 @@ export default class PatientsController {
       newPatient.phone = data.phone
       newPatient.allergy = data.allergy
       newPatient.clinicId = auth.user!.clinicId
+      newPatient.recordNumber = ''
 
       await occupationData.related('patients').save(newPatient)
 

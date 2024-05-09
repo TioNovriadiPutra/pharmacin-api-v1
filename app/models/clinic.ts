@@ -11,6 +11,8 @@ import Doctor from './doctor.js'
 import Record from './record.js'
 import SellingTransaction from './selling_transaction.js'
 import Action from './action.js'
+import { Cashier } from '../enums/cashier_enum.js'
+import CashierHistory from './cashier_history.js'
 
 export default class Clinic extends BaseModel {
   @column({ isPrimary: true })
@@ -33,6 +35,15 @@ export default class Clinic extends BaseModel {
 
   @column()
   declare sellingFee: number
+
+  @column()
+  declare cashierStatus: Cashier
+
+  @column.dateTime()
+  declare openCashierAt?: DateTime
+
+  @column()
+  declare openBy?: string
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -71,4 +82,7 @@ export default class Clinic extends BaseModel {
 
   @hasMany(() => Action)
   declare actions: HasMany<typeof Action>
+
+  @hasMany(() => CashierHistory)
+  declare cashierHistories: HasMany<typeof CashierHistory>
 }

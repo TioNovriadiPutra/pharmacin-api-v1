@@ -28,6 +28,16 @@ export default class SellingTransaction extends BaseModel {
   })
   declare status: boolean
 
+  @column({
+    serialize: (value: Number) => {
+      return Boolean(value)
+    },
+  })
+  declare pickUpStatus: boolean
+
+  @column()
+  declare subTotalPrice: number
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 

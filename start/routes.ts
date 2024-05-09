@@ -102,7 +102,14 @@ router
 router
   .group(() => {
     router.get('/', [ClinicsController, 'getClinicDetail'])
+    router.get('/report', [ClinicsController, 'getClinicDailyReport'])
     router.put('/', [ClinicsController, 'updateClinic'])
+    router
+      .group(() => {
+        router.patch('/open', [ClinicsController, 'openCashier'])
+        router.patch('/close', [ClinicsController, 'closeCashier'])
+      })
+      .prefix('/cashier')
   })
   .prefix('/clinic')
   .use(
@@ -166,6 +173,9 @@ router
     router
       .group(() => {
         router.get('/:id', [TransactionsController, 'getSellingTransactionDetail'])
+        router.get('/pharmacy/:id', [TransactionsController, 'getPharmacyTransactionDetail'])
+        router.patch('/payment/:id', [TransactionsController, 'sellingTransactionPayment'])
+        router.patch('/pharmacy/:id', [TransactionsController, 'pharmacyTransactionDrugDelivery'])
         router.delete('/cart/:id', [TransactionsController, 'deleteSellingShoppingCartItem'])
         router.delete('/cart/action/:id', [TransactionsController, 'deleteActionCartItem'])
       })
@@ -209,7 +219,8 @@ router
   .group(() => {
     router.get('/consult-wait', [QueueController, 'getConsultWaitQueue']) // Doctor Assistant
     router.get('/doctor/consulting', [QueueController, 'getDoctorConsultingQueue']) // Doctor
-    router.get('/payment', [QueueController, 'getPaymentQueue']) // Doctor Assistant
+    router.get('/payment', [QueueController, 'getPaymentQueue']) // Nurse
+    router.get('/drug-pick-up', [QueueController, 'getDrugPickUpQueue']) // Nurse
     router.get('/doctor/consulting/:id', [QueueController, 'getDoctorConsultingQueueDetail']) // Doctor
     router.patch('/consult-wait/:id', [QueueController, 'changeStatusToConsultingQueue']) // Doctor Assistant
     router.delete('/cancel/:id', [QueueController, 'cancelQueue']) // Doctor Assistant

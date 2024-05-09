@@ -173,6 +173,38 @@ export default class QueuesController {
     }
   }
 
+  async getDrugPickUpQueue({ response, bouncer, auth }: HttpContext) {
+    try {
+      if (await bouncer.with('QueuePolicy').denies('viewPaymentQueue')) {
+        throw new ForbiddenException()
+      }
+
+      const queueData = await db.rawQuery(
+        `SELECT
+          st.id,
+          p.full_name,
+          p.record_number,
+          st.registration_number,
+          CASE
+            WHEN st.pick_up_status = 0 THEN "Belum Diserahkan"
+            WHEN st.pick_up_status = 1 THEN "Obat Diserahkan"
+          END AS status
+         FROM selling_transactions st
+         JOIN patients p ON st.patient_id = p.id
+         WHERE st.status = 1 AND st.clinic_id = ?
+         ORDER BY st.pick_up_status ASC, st.created_at ASC`,
+        [auth.user!.clinicId]
+      )
+
+      return response.ok({
+        message: 'Data fetched!',
+        data: queueData[0],
+      })
+    } catch (error) {
+      throw error
+    }
+  }
+
   async changeStatusToConsultingQueue({ response, params, bouncer }: HttpContext) {
     try {
       const queueData = await Queue.findOrFail(params.id)

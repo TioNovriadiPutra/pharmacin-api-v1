@@ -23,10 +23,10 @@ export default class TransactionPolicy extends BasePolicy {
   }
 
   handleCart(user: User, transaction: SellingTransaction): AuthorizerResponse {
-    return (
-      this.viewQueue(user) &&
-      Boolean(transaction.status) === false &&
-      user.clinicId === transaction.clinicId
-    )
+    return this.viewQueueDetail(user, transaction) && Boolean(transaction.status) === false
+  }
+
+  handlePharmacy(user: User, transaction: SellingTransaction): AuthorizerResponse {
+    return this.viewQueueDetail(user, transaction) && Boolean(transaction.pickUpStatus) === false
   }
 }

@@ -176,7 +176,7 @@ export default class DoctorsController {
       queueData = await Queue.query()
         .select('id', 'status', 'registration_number', 'doctor_id', 'clinic_id', 'patient_id')
         .preload('clinic', (clinicBuilder) => {
-          clinicBuilder.select('id', 'clinic_name', 'clinic_phone')
+          clinicBuilder.select('id', 'clinic_name', 'clinic_phone', 'outpatient_fee')
         })
         .preload('patient', (patientBuilder) => {
           patientBuilder.select(
@@ -205,8 +205,6 @@ export default class DoctorsController {
         })
         .where('id', params.id)
         .firstOrFail()
-
-      console.log(queueData)
 
       if (await bouncer.with('DoctorPolicy').denies('assessment', queueData)) {
         throw new ForbiddenException()
@@ -302,7 +300,8 @@ export default class DoctorsController {
         actionCartData.push(newActionCart)
       }
 
-      newSellingTransaction.totalPrice = total
+      newSellingTransaction.subTotalPrice = total
+      newSellingTransaction.totalPrice = total + queueData.clinic.outpatientFee
 
       queueData.status = QueueStatus['PAYMENT']
 

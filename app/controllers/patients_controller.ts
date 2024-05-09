@@ -59,7 +59,7 @@ export default class PatientsController {
           END AS status
          FROM patients p
          JOIN queues q ON p.id = q.patient_id
-         WHERE p.clinic_id = ?
+         WHERE p.clinic_id = ? AND q.status != "done"
          ORDER BY p.full_name ASC`,
         [auth.user!.clinicId]
       )

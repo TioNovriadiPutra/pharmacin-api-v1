@@ -192,6 +192,10 @@ export default class TransactionsController {
           c.outpatient_fee,
           st.total_price,
           st.sub_total_price,
+          CASE
+            WHEN st.status = 0 THEN "Belum Dibayar"
+            WHEN st.status = 1 THEN "Sudah Dibayar"
+          END AS status,
           CONCAT(
             "[",
             GROUP_CONCAT(
@@ -280,6 +284,10 @@ export default class TransactionsController {
           DATE_FORMAT(st.created_at, "%d-%m-%Y") AS tgl_periksa,
           r.doctor_name,
           p.allergy,
+          CASE
+            WHEN st.pick_up_status = 0 THEN "Belum Diserahkan"
+            WHEN st.pick_up_status = 1 THEN "Obat Diserahkan"
+          END AS status,
           CONCAT(
             "[",
             GROUP_CONCAT(
@@ -299,7 +307,7 @@ export default class TransactionsController {
          FROM selling_transactions st
          JOIN patients p ON st.patient_id = p.id
          JOIN records r ON st.record_id = r.id
-         LEFt JOIN selling_shopping_carts ssc ON st.id = ssc.selling_transaction_id
+         LEFT JOIN selling_shopping_carts ssc ON st.id = ssc.selling_transaction_id
          WHERE st.id = ?
          GROUP BY st.id`,
         [params.id]
@@ -338,13 +346,55 @@ export default class TransactionsController {
   async sellingTransactionPayment({ response, params, bouncer }: HttpContext) {
     let transactionData = null
     let queueData = null
+    let drugData = null
+    let drugStockData = null
+
+    let drugArr = []
+    let drugStockArr = []
 
     try {
-      transactionData = await SellingTransaction.findOrFail(params.id)
+      transactionData = await SellingTransaction.query()
+        .preload('sellingShoppingCarts')
+        .where('id', params.id)
+        .firstOrFail()
       queueData = await Queue.findOrFail(transactionData.queueId)
 
       if (await bouncer.with('TransactionPolicy').denies('handleCart', transactionData)) {
         throw new ForbiddenException()
+      }
+
+      if (transactionData.sellingShoppingCarts.length > 0) {
+        for (const cart of transactionData.sellingShoppingCarts) {
+          drugData = await Drug.findOrFail(cart.drugId)
+          drugData.totalStock = drugData.totalStock - cart.quantity
+
+          drugArr.push(drugData)
+
+          drugStockData = await DrugStock.query()
+            .where('drug_id', drugData.id)
+            .andWhere('active_stock', '>', 0)
+            .orderBy('created_at', 'asc')
+
+          let remain = cart.quantity
+
+          for (const stock of drugStockData) {
+            if (remain > 0) {
+              if (stock.activeStock < remain) {
+                remain -= stock.activeStock
+                stock.soldStock = stock.totalStock
+                stock.activeStock = 0
+              } else {
+                stock.soldStock = stock.soldStock + remain
+                stock.activeStock = stock.activeStock - remain
+                remain = 0
+              }
+
+              drugStockArr.push(stock)
+            } else {
+              break
+            }
+          }
+        }
       }
 
       transactionData.status = true
@@ -353,6 +403,14 @@ export default class TransactionsController {
 
       await transactionData.save()
       await queueData.save()
+
+      for (const drug of drugArr) {
+        await drug.save()
+      }
+
+      for (const stock of drugStockArr) {
+        await stock.save()
+      }
 
       return response.ok({
         message: 'Pembayaran berhasil!',

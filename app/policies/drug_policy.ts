@@ -10,7 +10,7 @@ export default class DrugPolicy extends BasePolicy {
   }
 
   view(user: User): AuthorizerResponse {
-    return this.add(user) || user.roleId === Role['DOCTOR']
+    return this.add(user) || user.roleId === Role['DOCTOR'] || user.roleId === Role['NURSE']
   }
 
   update(user: User, drug: Drug): AuthorizerResponse {

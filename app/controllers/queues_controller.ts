@@ -198,9 +198,14 @@ export default class QueuesController {
         [auth.user!.clinicId]
       )
 
+      const finalData = {
+        queue: queueData[0],
+        total: queueData[0].filter((item: any) => item.status === 'Belum Diserahkan').length,
+      }
+
       return response.ok({
         message: 'Data fetched!',
-        data: queueData[0],
+        data: finalData,
       })
     } catch (error) {
       throw error

@@ -196,42 +196,12 @@ export default class TransactionsController {
             WHEN st.status = 0 THEN "Belum Dibayar"
             WHEN st.status = 1 THEN "Sudah Dibayar"
           END AS status,
-          CONCAT(
-            "[",
-            GROUP_CONCAT(
-              JSON_OBJECT(
-                "id", ssc.id,
-                "drug_name", ssc.drug_name,
-                "quantity", ssc.quantity,
-                "unit_name", ssc.unit_name,
-                "instruction", ssc.instruction,
-                "total_price", ssc.total_price
-              )
-            ),
-            "]"
-          ) AS drug_carts,
-          CAST(SUM(ssc.total_price) AS SIGNED) AS drug_carts_total_price,
-          CONCAT(
-            "[",
-            GROUP_CONCAT(
-              JSON_OBJECT(
-                "id", ac.id,
-                "action_name", ac.action_name,
-                "action_price", ac.action_price
-              )
-            ),
-            "]"
-          ) AS action_carts,
-          CAST(SUM(ac.action_price) AS SIGNED) AS action_carts_total_price,
           st.clinic_id AS clinicId
          FROM selling_transactions st
          JOIN patients p ON st.patient_id = p.id
          JOIN records r ON st.record_id = r.id
          JOIN clinics c ON st.clinic_id = c.id
-         LEFT JOIN selling_shopping_carts ssc ON st.id = ssc.selling_transaction_id
-         LEFT JOIN action_carts ac ON st.id = ac.selling_transaction_id
-         WHERE st.id = ?
-         GROUP BY st.id`,
+         WHERE st.id = ?`,
         [params.id]
       )
 
@@ -239,32 +209,58 @@ export default class TransactionsController {
         throw new DataNotFoundException('Data penjualan tidak ditemukan!')
       }
 
-      if (
-        await bouncer.with('TransactionPolicy').denies('viewQueueDetail', transactionData[0][0])
-      ) {
+      const cartData = await db.rawQuery(
+        `SELECT
+          ssc.id,
+          ssc.drug_name,
+          ssc.quantity,
+          ssc.unit_name,
+          ssc.instruction,
+          ssc.total_price
+         FROM selling_shopping_carts ssc
+         WHERE ssc.selling_transaction_id = ?`,
+        [transactionData[0][0].id]
+      )
+
+      let totalDrugPrice = 0
+
+      for (const cart of cartData[0]) {
+        totalDrugPrice += cart.total_price
+      }
+
+      const actionData = await db.rawQuery(
+        `SELECT
+          ac.id,
+          ac.action_name,
+          ac.action_price
+         FROM action_carts ac
+         WHERE ac.selling_transaction_id = ?`,
+        [transactionData[0][0].id]
+      )
+
+      let totalActionPrice = 0
+
+      for (const action of actionData[0]) {
+        totalActionPrice += action.action_price
+      }
+
+      const finalData = {
+        ...transactionData[0][0],
+        drug_carts: cartData,
+        action_carts: actionData,
+        drug_carts_total_price: totalDrugPrice,
+        action_carts_total_price: totalActionPrice,
+      }
+
+      if (await bouncer.with('TransactionPolicy').denies('viewQueueDetail', finalData)) {
         throw new ForbiddenException()
       }
 
-      delete transactionData[0][0].clinicId
-
-      Object.assign(transactionData[0][0], {
-        drug_carts: JSON.parse(transactionData[0][0].drug_carts).some(
-          (cart: any) => cart.id === null
-        )
-          ? []
-          : JSON.parse(transactionData[0][0].drug_carts),
-        drug_carts_total_price: transactionData[0][0].drug_carts_total_price || 0,
-        action_carts: JSON.parse(transactionData[0][0].action_carts).some(
-          (cart: any) => cart.id === null
-        )
-          ? []
-          : JSON.parse(transactionData[0][0].action_carts),
-        action_carts_total_price: transactionData[0][0].action_carts_total_price || 0,
-      })
+      delete finalData.clinicId
 
       return response.ok({
         message: 'Data fetched!',
-        data: transactionData[0][0],
+        data: finalData,
       })
     } catch (error) {
       throw error

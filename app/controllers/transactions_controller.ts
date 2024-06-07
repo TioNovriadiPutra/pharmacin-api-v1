@@ -246,8 +246,8 @@ export default class TransactionsController {
 
       const finalData = {
         ...transactionData[0][0],
-        drug_carts: cartData,
-        action_carts: actionData,
+        drug_carts: cartData[0],
+        action_carts: actionData[0],
         drug_carts_total_price: totalDrugPrice,
         action_carts_total_price: totalActionPrice,
       }

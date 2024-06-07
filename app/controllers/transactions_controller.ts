@@ -464,6 +464,7 @@ export default class TransactionsController {
       }
 
       transactionData.totalPrice = transactionData.totalPrice - cartData.totalPrice
+      transactionData.subTotalPrice = transactionData.subTotalPrice - cartData.totalPrice
 
       await transactionData.save()
       await cartData.delete()
@@ -490,6 +491,7 @@ export default class TransactionsController {
       }
 
       transactionData.totalPrice = transactionData.totalPrice - cartData.actionPrice
+      transactionData.subTotalPrice = transactionData.subTotalPrice = cartData.actionPrice
 
       await transactionData.save()
       await cartData.delete()

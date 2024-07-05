@@ -7,4 +7,4 @@ ADD package.json package-lock.json ./
 RUN npm ci
 
 # Run the AdonisJS application
-CMD ["sh", "-c", "node ace migration:run && node ace db:seed && npm ci && node ./bin/server.js"]
+CMD ["node", "./bin/server.js"]

@@ -1,21 +1,29 @@
-FROM node:14-alpine
+FROM node:20.12.2-alpine3.18 as base
 
-# Create app directory
-WORKDIR /usr/src/app
+# All deps stage
+FROM base as deps
+WORKDIR /app
+ADD package.json package-lock.json ./
+RUN npm ci
 
-# Install app dependencies
-COPY package.json ./
+# Production only deps stage
+FROM base as production-deps
+WORKDIR /app
+ADD package.json package-lock.json ./
+RUN npm ci --omit=dev
 
-RUN npm install
+# Build stage
+FROM base as build
+WORKDIR /app
+COPY --from=deps /app/node_modules /app/node_modules
+ADD . .
+RUN node ace build
 
-# Copy app source code
-COPY . .
-
-# Build AdonisJS application
-RUN node ace build --ignore-ts-errors
-
-# Expose the port the app runs on
-EXPOSE 3333
-
-# Run the AdonisJS application
-CMD ["sh", "-c", "node ace migration:run && node ace db:seed && node server.js"]
+# Production stage
+FROM base
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=production-deps /app/node_modules /app/node_modules
+COPY --from=build /app/build /app
+EXPOSE 8080
+CMD ["node", "./bin/server.js"]

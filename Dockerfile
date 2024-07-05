@@ -14,5 +14,9 @@ COPY . .
 # Build AdonisJS application
 RUN node ace build --ignore-ts-errors
 
+WORKDIR /build
+
+RUN npm ci --production
+
 # Run the AdonisJS application
-CMD ["sh", "-c", "node ace migration:run && node ace db:seed && node ../build/server.js"]
+CMD ["sh", "-c", "node ace migration:run && node ace db:seed && node server.js"]

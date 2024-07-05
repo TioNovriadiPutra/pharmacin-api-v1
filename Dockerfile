@@ -1,10 +1,12 @@
 FROM node:20.12.2-alpine3.18 as base
 
-# Create app directory
-FROM base as deps
-WORKDIR /app
-ADD package.json package-lock.json ./
-RUN npm ci
+# Install app dependencies
+COPY package.json package-lock.json ./
+
+RUN npm install
+
+# Copy app source code
+COPY . .
 
 # Run the AdonisJS application
-CMD ["node", "../bin/server.js"]
+CMD ["sh", "-c", "node ace serve --watch"]

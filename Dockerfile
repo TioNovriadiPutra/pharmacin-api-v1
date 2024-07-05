@@ -1,20 +1,10 @@
 FROM node:20.12.2-alpine3.18 as base
 
 # Create app directory
+FROM base as deps
 WORKDIR /app
-
-# Install app dependencies
-COPY package.json package-lock.json ./
-
-RUN npm install
-
-# Copy app source code
-COPY . .
-
-# Build AdonisJS application
-RUN node ace build --ignore-ts-errors
-
-WORKDIR /build
+ADD package.json package-lock.json ./
+RUN npm ci
 
 # Run the AdonisJS application
-CMD ["sh", "-c", "node ace migration:run && node ace db:seed && npm ci && node ./bin/server.js"]
+CMD ["node ace migration:run && node ace db:seed && npm ci && node ./bin/server.js"]
